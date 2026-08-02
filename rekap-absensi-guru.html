@@ -825,6 +825,8 @@
     </div>
     <div class="topbar-actions">
       <button class="btn-ghost" id="btnExportAllPdf">⬇ PDF Semua Guru</button>
+      <button class="btn-outline" id="btnPickPeriod">🗂 Pilih Periode</button>
+      <button class="btn-outline" id="btnSavePeriod">💾 Simpan ke Database</button>
       <button class="btn-outline" id="btnSettings">⚙ Pengaturan</button>
       <label class="btn btn-primary" for="fileInput">⭱ Upload File</label>
       <input type="file" id="fileInput" accept=".xls,.xlsx" multiple>
@@ -932,6 +934,18 @@
         </div>
 
         <div class="field-group">
+          <label class="title">Guru Tanpa Mesin Absen (Input Manual)</label>
+          <div class="hint" style="margin-bottom:10px;">Untuk guru yang tidak tercatat mesin absen (mis. guru
+            honorer luar/tamu). Nama ini akan otomatis muncul di Daftar Guru &amp; bisa dipakai untuk perhitungan
+            gaji manual — isi jumlah hari masuknya lewat kolom <b>"Hari Tidak Tercatat"</b> di tab Gaji.</div>
+          <div id="manualGuruList"></div>
+          <div class="holiday-row">
+            <input type="text" id="newManualGuruName" placeholder="Nama guru" style="flex:1;">
+            <button class="btn-outline btn-sm" id="btnAddManualGuru">+ Tambah</button>
+          </div>
+        </div>
+
+        <div class="field-group">
           <label class="title">Sinkronisasi Google Sheets</label>
           <div class="hint">Pengaturan &amp; data gaji bisa disimpan/dimuat dari Google Spreadsheet milik Anda sendiri.
             Layanan ini <b>gratis</b>, tidak butuh kartu kredit — Anda hanya perlu membuat "OAuth Client ID" sendiri
@@ -986,6 +1000,25 @@
     </div>
   </div>
 
+  <!-- PERIOD PICKER MODAL -->
+  <div class="overlay" id="periodOverlay">
+    <div class="modal" style="max-width:640px;">
+      <div class="modal-head">
+        <h2>Pilih Periode Tersimpan</h2>
+        <button class="icon-btn" id="btnClosePeriod">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="hint" style="margin-bottom:12px;">Daftar periode yang pernah disimpan ke Google Spreadsheet. Klik
+          salah satu untuk memuat kembali data absensi periode tersebut (data yang belum disimpan di layar akan
+          diganti).</div>
+        <div id="periodList"></div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn-outline" id="btnClosePeriod2">Tutup</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     // ---------- STATE ----------
     const DOW_LABELS = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
@@ -1004,6 +1037,7 @@
     let googleConfig = { clientId: '', sheetId: '' };
     let googleAccessToken = null;
     let googleTokenClient = null;
+    let googleAuthWaiters = [];
 
     function toLocalDateStr(d) {
       const y = d.getFullYear();
@@ -1032,7 +1066,8 @@
         { id: 'grp_staf_pagi', name: 'Staf / Shift Pagi (umum)', week: defaultWeek({ 1: ['07:00', '12:30'], 2: ['07:00', '12:30'], 3: ['07:00', '12:30'], 4: ['07:00', '12:30'], 5: ['07:00', '10:00'], 6: ['07:30', '10:00'] }) },
         { id: 'grp_staf_siang', name: 'Staf / Shift Siang (umum)', week: defaultWeek({ 1: ['13:00', '16:30'], 2: ['13:00', '16:30'], 3: ['13:00', '16:30'], 4: ['13:00', '16:30'], 5: ['13:00', '16:30'], 6: ['07:30', '10:00'] }) }
       ],
-      assignments: {}
+      assignments: {},
+      manualEmployees: [] // {id, name} - guru tanpa mesin absen, input manual
     };
 
     // ---------- LOCAL PERSISTENCE ----------
@@ -1046,7 +1081,8 @@
             extraHolidays: settings.extraHolidays,
             toleransi: settings.toleransi,
             groups: settings.groups,
-            assignments: settings.assignments
+            assignments: settings.assignments,
+            manualEmployees: settings.manualEmployees
           },
           payrollData,
           googleConfig: { clientId: googleConfig.clientId, sheetId: googleConfig.sheetId },
@@ -1073,6 +1109,7 @@
           settings.toleransi = (payload.settings.toleransi != null) ? payload.settings.toleransi : 2;
           if (Array.isArray(payload.settings.groups) && payload.settings.groups.length) settings.groups = payload.settings.groups;
           settings.assignments = payload.settings.assignments || {};
+          settings.manualEmployees = Array.isArray(payload.settings.manualEmployees) ? payload.settings.manualEmployees : [];
         }
         if (payload.payrollData) payrollData = payload.payrollData;
         if (payload.googleConfig) googleConfig = payload.googleConfig;
@@ -1090,12 +1127,17 @@
 
     loadLocalState();
 
-    // Restore previously uploaded attendance data (if any) so it survives a browser restart.
-    if (filesData.length > 0) {
-      rebuildEmployees();
-      document.getElementById('emptyState').style.display = 'none';
-      document.getElementById('dataArea').style.display = 'block';
-      document.getElementById('sidebar').style.display = 'block';
+    function updateAreaVisibility() {
+      const hasEmployees = Object.keys(employees).length > 0;
+      document.getElementById('emptyState').style.display = hasEmployees ? 'none' : 'block';
+      document.getElementById('dataArea').style.display = hasEmployees ? 'block' : 'none';
+      document.getElementById('sidebar').style.display = hasEmployees ? 'block' : 'none';
+    }
+
+    // Restore previously uploaded attendance data / manual guru (if any) so it survives a browser restart.
+    rebuildEmployees();
+    if (Object.keys(employees).length > 0) {
+      updateAreaVisibility();
       if (!selectedEmployeeId || !employees[selectedEmployeeId]) selectedEmployeeId = Object.keys(employees)[0];
       renderAll();
     }
@@ -1190,10 +1232,7 @@
 
       filesData.push({ fileName, periodStart, periodEnd, blocks });
       rebuildEmployees();
-
-      document.getElementById('emptyState').style.display = 'none';
-      document.getElementById('dataArea').style.display = 'block';
-      document.getElementById('sidebar').style.display = 'block';
+      updateAreaVisibility();
       if (!selectedEmployeeId) selectedEmployeeId = Object.keys(employees)[0];
 
       saveLocalState();
@@ -1214,6 +1253,9 @@
         });
       });
       allDates = Array.from(dateSet).sort();
+      (settings.manualEmployees || []).forEach(m => {
+        if (!employees[m.id]) employees[m.id] = { id: m.id, name: m.name, dept: '', records: {}, isManual: true };
+      });
       Object.keys(employees).forEach(id => {
         if (!settings.assignments[id]) settings.assignments[id] = settings.groups[0].id;
       });
@@ -1222,10 +1264,8 @@
     function removeFile(fileName) {
       filesData = filesData.filter(f => f.fileName !== fileName);
       rebuildEmployees();
+      updateAreaVisibility();
       if (Object.keys(employees).length === 0) {
-        document.getElementById('emptyState').style.display = 'block';
-        document.getElementById('dataArea').style.display = 'none';
-        document.getElementById('sidebar').style.display = 'none';
         selectedEmployeeId = null;
       } else if (!employees[selectedEmployeeId]) {
         selectedEmployeeId = Object.keys(employees)[0];
@@ -1329,7 +1369,7 @@
         const div = document.createElement('div');
         div.className = 'guru-item' + (emp.id === selectedEmployeeId ? ' active' : '');
         div.innerHTML = `
-      <span class="guru-name">${escapeHtml(emp.name)}</span>
+      <span class="guru-name">${escapeHtml(emp.name)}${emp.isManual ? ' <span style="font-weight:400;opacity:.7;">(manual)</span>' : ''}</span>
       <span class="badges">
         <span class="b-ratio">${totalHadir}/${hariEfektif}</span>
         ${counts.late ? `<span class="b-late">T${counts.late}</span>` : ''}
@@ -1490,6 +1530,22 @@
         renderGroupList(); renderAssignList();
       };
 
+      renderManualGuruList();
+      document.getElementById('btnAddManualGuru').onclick = () => {
+        const inp = document.getElementById('newManualGuruName');
+        const name = inp.value.trim();
+        if (!name) return;
+        settings.manualEmployees.push({ id: 'manual_' + Date.now(), name });
+        inp.value = '';
+        rebuildEmployees();
+        if (!selectedEmployeeId) selectedEmployeeId = Object.keys(employees)[0] || null;
+        updateAreaVisibility();
+        renderManualGuruList();
+        renderAssignList();
+        saveLocalState();
+        renderAll();
+      };
+
       document.getElementById('googleClientId').value = googleConfig.clientId || '';
       document.getElementById('googleSheetId').value = googleConfig.sheetId || '';
       updateSyncStatus();
@@ -1559,6 +1615,31 @@
         });
         card.appendChild(grid);
         box.appendChild(card);
+      });
+    }
+
+    function renderManualGuruList() {
+      const box = document.getElementById('manualGuruList');
+      box.innerHTML = '';
+      (settings.manualEmployees || []).forEach(m => {
+        const row = document.createElement('div');
+        row.className = 'holiday-row';
+        row.innerHTML = `<span style="flex:1;">${escapeHtml(m.name)}</span>`;
+        const btn = document.createElement('button');
+        btn.className = 'icon-btn'; btn.textContent = '✕';
+        btn.onclick = () => {
+          settings.manualEmployees = settings.manualEmployees.filter(x => x.id !== m.id);
+          delete settings.assignments[m.id];
+          rebuildEmployees();
+          if (!employees[selectedEmployeeId]) selectedEmployeeId = Object.keys(employees)[0] || null;
+          updateAreaVisibility();
+          renderManualGuruList();
+          renderAssignList();
+          saveLocalState();
+          renderAll();
+        };
+        row.appendChild(btn);
+        box.appendChild(row);
       });
     }
 
@@ -1842,6 +1923,8 @@
             if (resp && resp.access_token) {
               googleAccessToken = resp.access_token;
               updateSyncStatus();
+              const waiters = googleAuthWaiters; googleAuthWaiters = [];
+              waiters.forEach(fn => fn());
             }
           }
         });
@@ -1873,7 +1956,7 @@
     async function ensureSheetTabs() {
       const meta = await sheetsApiFetch('');
       const existing = new Set(meta.sheets.map(s => s.properties.title));
-      const needed = ['Rekap', 'Gaji', 'Pengaturan'].filter(n => !existing.has(n));
+      const needed = ['Rekap', 'Gaji', 'Pengaturan', 'DataPeriode'].filter(n => !existing.has(n));
       if (needed.length) {
         await sheetsApiFetch(':batchUpdate', {
           method: 'POST',
@@ -1936,7 +2019,8 @@
           extraHolidays: settings.extraHolidays,
           toleransi: settings.toleransi,
           groups: settings.groups,
-          assignments: settings.assignments
+          assignments: settings.assignments,
+          manualEmployees: settings.manualEmployees
         });
         const payrollJson = JSON.stringify(payrollData);
         await writeSheetValues('Pengaturan', [
@@ -1972,10 +2056,14 @@
           settings.toleransi = (s.toleransi != null) ? s.toleransi : 2;
           if (Array.isArray(s.groups) && s.groups.length) settings.groups = s.groups;
           settings.assignments = s.assignments || {};
+          settings.manualEmployees = Array.isArray(s.manualEmployees) ? s.manualEmployees : [];
         }
         if (map.payroll_json) {
           payrollData = JSON.parse(map.payroll_json);
         }
+        rebuildEmployees();
+        if (!employees[selectedEmployeeId]) selectedEmployeeId = Object.keys(employees)[0] || null;
+        updateAreaVisibility();
         saveLocalState();
         renderAll();
         document.getElementById('syncStatusText').textContent = 'Data dimuat dari spreadsheet.';
@@ -1986,6 +2074,134 @@
         btn.textContent = original; btn.disabled = false;
       }
     };
+
+    // ---------- SIMPAN PERIODE KE DATABASE (Google Sheets) ----------
+    function periodKeyFor(minStart, maxEnd) {
+      return toLocalDateStr(minStart) + '_' + toLocalDateStr(maxEnd);
+    }
+
+    function connectGoogleIfNeeded() {
+      return new Promise(resolve => {
+        if (googleAccessToken) { resolve(true); return; }
+        const proceed = confirm('Belum terhubung ke akun Google. Hubungkan sekarang?');
+        if (!proceed) { resolve(false); return; }
+        const client = ensureGoogleTokenClient();
+        if (!client) { resolve(false); return; }
+        googleAuthWaiters.push(() => resolve(true));
+        client.requestAccessToken();
+      });
+    }
+
+    document.getElementById('btnSavePeriod').addEventListener('click', async () => {
+      if (filesData.length === 0) { alert('Belum ada data absensi yang diupload untuk disimpan.'); return; }
+      const ready = await connectGoogleIfNeeded();
+      if (!ready) return;
+      googleConfig.sheetId = googleConfig.sheetId || document.getElementById('googleSheetId').value.trim();
+      if (!googleConfig.sheetId) {
+        alert('Isi dulu ID Google Spreadsheet lewat menu Pengaturan → Sinkronisasi Google Sheets.');
+        return;
+      }
+      const btn = document.getElementById('btnSavePeriod');
+      const original = btn.textContent; btn.textContent = 'Menyimpan...'; btn.disabled = true;
+      try {
+        await ensureSheetTabs();
+        const minStart = filesData.reduce((a, f) => f.periodStart < a ? f.periodStart : a, filesData[0].periodStart);
+        const maxEnd = filesData.reduce((a, f) => f.periodEnd > a ? f.periodEnd : a, filesData[0].periodEnd);
+        const key = periodKeyFor(minStart, maxEnd);
+        const serialized = filesData.map(f => ({
+          fileName: f.fileName,
+          periodStart: f.periodStart.toISOString(),
+          periodEnd: f.periodEnd.toISOString(),
+          blocks: f.blocks
+        }));
+        const blocksJson = JSON.stringify(serialized);
+
+        let rows = await readSheetValues('DataPeriode');
+        const header = ['Periode Key', 'Periode Mulai', 'Periode Selesai', 'Jumlah Guru', 'Data (JSON)', 'Disimpan Pada'];
+        if (!rows || rows.length === 0) rows = [header];
+        rows = rows.filter(r => r[0] !== key); // ganti kalau periode yang sama sudah pernah disimpan
+        rows.push([key, fmtDate(minStart), fmtDate(maxEnd), Object.keys(employees).length, blocksJson, new Date().toLocaleString('id-ID')]);
+        await writeSheetValues('DataPeriode', rows);
+
+        alert('Periode ' + fmtDate(minStart) + ' – ' + fmtDate(maxEnd) + ' berhasil disimpan ke database (Google Spreadsheet).');
+      } catch (err) {
+        alert('Gagal menyimpan periode: ' + err.message);
+      } finally {
+        btn.textContent = original; btn.disabled = false;
+      }
+    });
+
+    // ---------- PILIH PERIODE DARI DATABASE ----------
+    const periodOverlay = document.getElementById('periodOverlay');
+    document.getElementById('btnClosePeriod').onclick = () => periodOverlay.classList.remove('show');
+    document.getElementById('btnClosePeriod2').onclick = () => periodOverlay.classList.remove('show');
+
+    document.getElementById('btnPickPeriod').addEventListener('click', async () => {
+      const ready = await connectGoogleIfNeeded();
+      if (!ready) return;
+      googleConfig.sheetId = googleConfig.sheetId || document.getElementById('googleSheetId').value.trim();
+      if (!googleConfig.sheetId) {
+        alert('Isi dulu ID Google Spreadsheet lewat menu Pengaturan → Sinkronisasi Google Sheets.');
+        return;
+      }
+      const btn = document.getElementById('btnPickPeriod');
+      const original = btn.textContent; btn.textContent = 'Memuat...'; btn.disabled = true;
+      try {
+        const rows = await readSheetValues('DataPeriode');
+        if (!rows || rows.length <= 1) {
+          alert('Belum ada periode tersimpan di database. Upload file lalu klik "Simpan ke Database" terlebih dulu.');
+          return;
+        }
+        const dataRows = rows.slice(1).filter(r => r[0]).sort((a, b) => (a[0] < b[0] ? 1 : -1));
+        renderPeriodList(dataRows);
+        periodOverlay.classList.add('show');
+      } catch (err) {
+        alert('Gagal memuat daftar periode: ' + err.message);
+      } finally {
+        btn.textContent = original; btn.disabled = false;
+      }
+    });
+
+    function renderPeriodList(dataRows) {
+      const box = document.getElementById('periodList');
+      box.innerHTML = '';
+      dataRows.forEach(r => {
+        const [key, mulai, selesai, jumlahGuru, blocksJson, savedAt] = r;
+        const item = document.createElement('div');
+        item.className = 'guru-item';
+        item.style.marginBottom = '6px';
+        item.style.border = '1px solid var(--line)';
+        item.innerHTML = `
+          <span>
+            <span class="guru-name" style="display:block;">${escapeHtml(mulai)} – ${escapeHtml(selesai)}</span>
+            <span style="font-size:11.5px; color:var(--ink-soft);">${escapeHtml(String(jumlahGuru || 0))} guru · disimpan ${escapeHtml(savedAt || '-')}</span>
+          </span>
+          <span class="badges">Muat ➜</span>
+        `;
+        item.onclick = () => loadPeriodFromJson(blocksJson, mulai, selesai);
+        box.appendChild(item);
+      });
+    }
+
+    function loadPeriodFromJson(blocksJson, mulai, selesai) {
+      try {
+        const parsed = JSON.parse(blocksJson);
+        filesData = parsed.map(f => ({
+          fileName: f.fileName,
+          periodStart: new Date(f.periodStart),
+          periodEnd: new Date(f.periodEnd),
+          blocks: f.blocks
+        }));
+        rebuildEmployees();
+        updateAreaVisibility();
+        selectedEmployeeId = Object.keys(employees)[0] || null;
+        saveLocalState();
+        renderAll();
+        periodOverlay.classList.remove('show');
+      } catch (err) {
+        alert('Gagal memuat data periode ' + mulai + ' – ' + selesai + ': ' + err.message);
+      }
+    }
   </script>
 </body>
 
