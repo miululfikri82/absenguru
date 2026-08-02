@@ -861,6 +861,7 @@
               </div>
             </div>
             <div style="display:flex; gap:8px; flex-wrap:wrap;" id="rekapActions">
+              <select id="rekapPeriodSelect" class="month-select" style="min-width:190px;"></select>
               <select id="groupAssignQuick" style="min-width:200px;"></select>
               <button class="btn-outline btn-sm" id="btnExportCsv">Unduh CSV</button>
               <button class="btn-primary btn-sm" id="btnExportPdf">⬇ Unduh PDF</button>
@@ -1041,6 +1042,7 @@
     let selectedEmployeeId = null;
     let currentView = 'rekap'; // 'rekap' | 'gaji'
     let selectedPayrollMonth = null; // 'YYYY-MM'
+    let selectedRekapPeriod = null; // 'YYYY-MM' berbasis cutoff gaji, null = tampilkan semua tanggal
 
     // payrollData[empId][yyyyMM] = {honorPokok, biayaTransport, hariTidakTercatat, honorLainnya:[{id,label,amount}]}
     let payrollData = {};
@@ -1105,7 +1107,8 @@
             periodEnd: f.periodEnd.toISOString(),
             blocks: f.blocks
           })),
-          selectedEmployeeId
+          selectedEmployeeId,
+          selectedRekapPeriod
         };
         localStorage.setItem(LS_KEY, JSON.stringify(payload));
       } catch (err) { console.warn('Gagal menyimpan ke penyimpanan lokal:', err); }
@@ -1136,6 +1139,7 @@
           }));
         }
         if (payload.selectedEmployeeId) selectedEmployeeId = payload.selectedEmployeeId;
+        if (payload.selectedRekapPeriod) selectedRekapPeriod = payload.selectedRekapPeriod;
       } catch (err) { console.warn('Gagal memuat penyimpanan lokal:', err); }
     }
 
@@ -1297,7 +1301,11 @@
       const rows = [];
       const counts = { ok: 0, late: 0, alpha: 0, off: 0 };
 
-      allDates.forEach(dateStr => {
+      const datesToUse = selectedRekapPeriod
+        ? allDates.filter(d => payrollPeriodKeyForDateStr(d) === selectedRekapPeriod)
+        : allDates;
+
+      datesToUse.forEach(dateStr => {
         const date = new Date(dateStr + 'T00:00:00');
         const dow = date.getDay();
         const isExtraHoliday = settings.extraHolidays.includes(dateStr);
@@ -1338,6 +1346,27 @@
       return { rows, counts, group };
     }
 
+    // Mengisi dropdown periode Rekap Harian dengan periode gaji (berbasis tanggal cutoff)
+    // yang sama dengan tab Gaji, supaya kehadiran juga bisa dilihat per periode gajian,
+    // bukan cuma digabung semua tanggal yang pernah diupload.
+    function populateRekapPeriodSelect() {
+      const sel = document.getElementById('rekapPeriodSelect');
+      if (!sel) return;
+      const periods = Array.from(new Set(allDates.map(d => payrollPeriodKeyForDateStr(d)))).sort();
+      if (selectedRekapPeriod && !periods.includes(selectedRekapPeriod)) selectedRekapPeriod = null;
+      sel.innerHTML = '';
+      const optAll = document.createElement('option');
+      optAll.value = ''; optAll.textContent = 'Semua Periode (' + allDates.length + ' hari data)';
+      sel.appendChild(optAll);
+      periods.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p; opt.textContent = fmtMonthLabel(p);
+        sel.appendChild(opt);
+      });
+      sel.value = selectedRekapPeriod || '';
+      sel.onchange = () => { selectedRekapPeriod = sel.value || null; saveLocalState(); renderAll(); };
+    }
+
     // ---------- RENDER ----------
     function renderAll() {
       const empCount = Object.keys(employees).length;
@@ -1348,6 +1377,7 @@
         const maxEnd = filesData.reduce((a, f) => f.periodEnd > a ? f.periodEnd : a, filesData[0].periodEnd);
         document.getElementById('periodLine').textContent = 'Periode: ' + fmtDate(minStart) + ' – ' + fmtDate(maxEnd) + ' · ' + empCount + ' guru terbaca';
       }
+      populateRekapPeriodSelect();
       renderFileChips();
       renderSidebar();
       renderGroupAssignQuick();
@@ -1414,7 +1444,8 @@
       if (!emp) { cards.innerHTML = ''; tbody.innerHTML = ''; return; }
       const { rows, counts } = computeEmployeeReport(emp);
 
-      document.getElementById('detailTitle').textContent = 'Rekap Harian — ' + emp.name;
+      const periodLabel = selectedRekapPeriod ? fmtMonthLabel(selectedRekapPeriod) : 'Semua Periode';
+      document.getElementById('detailTitle').textContent = 'Rekap Harian — ' + emp.name + ' · ' + periodLabel;
       const hariEfektif = counts.ok + counts.late + counts.alpha;
       const totalHadir = counts.ok + counts.late;
       cards.innerHTML = `
@@ -1445,14 +1476,16 @@
       const { rows, counts } = computeEmployeeReport(emp);
       const hariEfektif = counts.ok + counts.late + counts.alpha;
       const totalHadir = counts.ok + counts.late;
+      const periodLabel = selectedRekapPeriod ? fmtMonthLabel(selectedRekapPeriod) : 'Semua Periode';
       let csv = 'Nama,' + emp.name + '\n';
+      csv += 'Periode,' + periodLabel + '\n';
       csv += 'Total Kehadiran,' + totalHadir + '/' + hariEfektif + '\n\n';
       csv += 'Tanggal,Hari,Jam Masuk,Jam Keluar,Keterangan\n';
       rows.forEach(r => { csv += `${fmtDateShort(r.dateStr)},${r.dowLabel},${r.jamMasuk},${r.jamKeluar},"${r.status}"\n`; });
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url; a.download = 'rekap_absensi_' + emp.name.replace(/\s+/g, '_') + '.csv'; a.click();
+      a.href = url; a.download = 'rekap_absensi_' + emp.name.replace(/\s+/g, '_') + (selectedRekapPeriod ? '_' + selectedRekapPeriod : '') + '.csv'; a.click();
       URL.revokeObjectURL(url);
     });
 
@@ -1469,9 +1502,12 @@
       doc.setFontSize(11);
       doc.text('Nama: ' + emp.name, 14, 24);
       doc.text('Kelompok Jadwal: ' + (group ? group.name : '-'), 14, 30);
-      const minStart = filesData.reduce((a, f) => f.periodStart < a ? f.periodStart : a, filesData[0].periodStart);
-      const maxEnd = filesData.reduce((a, f) => f.periodEnd > a ? f.periodEnd : a, filesData[0].periodEnd);
-      doc.text('Periode: ' + fmtDate(minStart) + ' - ' + fmtDate(maxEnd), 14, 36);
+      const periodLabelPdf = selectedRekapPeriod ? fmtMonthLabel(selectedRekapPeriod) : (() => {
+        const minStart = filesData.reduce((a, f) => f.periodStart < a ? f.periodStart : a, filesData[0].periodStart);
+        const maxEnd = filesData.reduce((a, f) => f.periodEnd > a ? f.periodEnd : a, filesData[0].periodEnd);
+        return fmtDate(minStart) + ' - ' + fmtDate(maxEnd);
+      })();
+      doc.text('Periode: ' + periodLabelPdf, 14, 36);
       const hariEfektif = counts.ok + counts.late + counts.alpha;
       const totalHadir = counts.ok + counts.late;
       doc.setFontSize(12);
@@ -1495,7 +1531,7 @@
         }
       });
 
-      doc.save('rekap_absensi_' + emp.name.replace(/\s+/g, '_') + '.pdf');
+      doc.save('rekap_absensi_' + emp.name.replace(/\s+/g, '_') + (selectedRekapPeriod ? '_' + selectedRekapPeriod : '') + '.pdf');
     });
 
     // ---------- SETTINGS MODAL ----------
@@ -1544,7 +1580,9 @@
         settings.gajiCutoffDay = v;
         e.target.value = v;
         selectedPayrollMonth = null; // pilih ulang periode sesuai cutoff baru
+        selectedRekapPeriod = null; // periode rekap ikut dihitung ulang dengan cutoff baru
         saveLocalState();
+        renderAll();
       };
 
       renderGroupList();
@@ -1975,6 +2013,7 @@
       const doc = new jsPDF();
       const minStart = filesData.length ? filesData.reduce((a, f) => f.periodStart < a ? f.periodStart : a, filesData[0].periodStart) : null;
       const maxEnd = filesData.length ? filesData.reduce((a, f) => f.periodEnd > a ? f.periodEnd : a, filesData[0].periodEnd) : null;
+      const periodLabelAll = selectedRekapPeriod ? fmtMonthLabel(selectedRekapPeriod) : (minStart && maxEnd ? fmtDate(minStart) + ' - ' + fmtDate(maxEnd) : '');
 
       list.forEach((emp, idx) => {
         if (idx > 0) doc.addPage();
@@ -1984,7 +2023,7 @@
         doc.setFontSize(11);
         doc.text('Nama: ' + emp.name, 14, 24);
         doc.text('Kelompok Jadwal: ' + (group ? group.name : '-'), 14, 30);
-        if (minStart && maxEnd) doc.text('Periode: ' + fmtDate(minStart) + ' - ' + fmtDate(maxEnd), 14, 36);
+        if (periodLabelAll) doc.text('Periode: ' + periodLabelAll, 14, 36);
         const hariEfektif = counts.ok + counts.late + counts.alpha;
         const totalHadir = counts.ok + counts.late;
         doc.setFontSize(12);
