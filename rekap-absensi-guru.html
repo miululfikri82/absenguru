@@ -868,6 +868,7 @@
             <div style="display:flex; gap:8px; flex-wrap:wrap; display:none;" id="gajiActions">
               <select id="gajiMonthSelect" class="month-select"></select>
               <button class="btn-primary btn-sm" id="btnExportSlip">⬇ Unduh Slip Gaji</button>
+              <button class="btn-outline btn-sm" id="btnExportAllSlip">⬇ Rekap Slip Gaji (Semua Guru)</button>
             </div>
           </div>
           <div class="panel-body" style="overflow-x:auto;" id="rekapView">
@@ -1845,7 +1846,77 @@
         footStyles: { fillColor: [12, 65, 57], textColor: 255, fontStyle: 'bold' }
       });
 
+      // ---- Blok tanda tangan bukti penerimaan honor ----
+      let sigY = (doc.lastAutoTable && doc.lastAutoTable.finalY ? doc.lastAutoTable.finalY : 60) + 16;
+      if (sigY > 250) { doc.addPage(); sigY = 20; }
+      doc.setFontSize(9);
+      doc.text('Bukti Penerimaan Honor', 14, sigY);
+      sigY += 8;
+      const todayLabel = new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
+      doc.text('..............................., ' + todayLabel, 130, sigY);
+      sigY += 6;
+      doc.text('Penerima,', 14, sigY);
+      doc.text('Mengetahui / Bendahara,', 130, sigY);
+      sigY += 24;
+      doc.line(14, sigY, 85, sigY);
+      doc.line(130, sigY, 196, sigY);
+      sigY += 5;
+      doc.text('( ' + emp.name + ' )', 14, sigY);
+      doc.text('( ................................. )', 130, sigY);
+
       doc.save('slip_gaji_' + emp.name.replace(/\s+/g, '_') + '_' + yyyyMM + '.pdf');
+    });
+
+    // ---------- REKAP SLIP GAJI SEMUA GURU (dengan kolom tanda tangan) ----------
+    document.getElementById('btnExportAllSlip').addEventListener('click', () => {
+      const yyyyMM = selectedPayrollMonth;
+      if (!yyyyMM) { alert('Pilih bulan gaji terlebih dulu di tab Gaji.'); return; }
+      const list = Object.values(employees).sort((a, b) => a.name.localeCompare(b.name));
+      if (list.length === 0) { alert('Belum ada data guru.'); return; }
+
+      let grandTotal = 0;
+      const body = list.map((emp, idx) => {
+        const entry = getPayrollEntry(emp.id, yyyyMM);
+        const hadirOtomatis = computeMonthlyHadir(emp, yyyyMM);
+        const totalHariTransport = hadirOtomatis + (entry.hariTidakTercatat || 0);
+        const totalTransport = totalHariTransport * (entry.biayaTransport || 0);
+        const totalHonorLainnya = (entry.honorLainnya || []).reduce((s, x) => s + (Number(x.amount) || 0), 0);
+        const totalGaji = (entry.honorPokok || 0) + totalTransport + totalHonorLainnya;
+        grandTotal += totalGaji;
+        return [idx + 1, emp.name, formatRupiah(totalGaji), ''];
+      });
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      doc.setFontSize(14);
+      doc.text('Rekap Slip Gaji Guru', 14, 16);
+      doc.setFontSize(11);
+      doc.text('Yayasan Ulul Fikri', 14, 23);
+      doc.setFontSize(10);
+      doc.text('Periode: ' + fmtMonthLabel(yyyyMM), 14, 30);
+      doc.text('Dicetak: ' + new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }), 14, 36);
+
+      doc.autoTable({
+        startY: 42,
+        head: [['No', 'Nama Guru', 'Total Gaji', 'Tanda Tangan Bukti Terima']],
+        body,
+        styles: { fontSize: 10, cellPadding: 5, minCellHeight: 16, valign: 'middle' },
+        headStyles: { fillColor: [20, 99, 86] },
+        columnStyles: {
+          0: { cellWidth: 12, halign: 'center' },
+          1: { cellWidth: 60 },
+          2: { cellWidth: 38, halign: 'right' },
+          3: { cellWidth: 'auto' }
+        },
+        foot: [['', 'Total Keseluruhan', formatRupiah(grandTotal), '']],
+        footStyles: { fillColor: [12, 65, 57], textColor: 255, fontStyle: 'bold' }
+      });
+
+      const finalY = (doc.lastAutoTable && doc.lastAutoTable.finalY) || 42;
+      doc.setFontSize(9);
+      doc.text('Catatan: Kolom tanda tangan diisi langsung oleh guru sebagai bukti telah menerima honor sesuai jumlah di atas.', 14, finalY + 10);
+
+      doc.save('rekap_slip_gaji_' + yyyyMM + '.pdf');
     });
 
     // ---------- PDF SEMUA GURU ----------
