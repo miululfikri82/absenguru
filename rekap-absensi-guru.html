@@ -922,6 +922,16 @@
         </div>
 
         <div class="field-group">
+          <label class="title">Periode Gaji (Cutoff Tanggal)</label>
+          <div class="hint" style="margin-bottom:8px;">Tanggal mulai periode gaji. Contoh: isi <b>10</b> berarti satu
+            periode gaji dihitung dari tanggal 10 bulan ini sampai tanggal 9 bulan berikutnya — jadi kalau data
+            diupload lewat 2 file (mis. 10-31 Juli &amp; 1-10 Agustus), keduanya otomatis digabung jadi satu
+            periode gaji.</div>
+          <div class="tol-row"><span>Tanggal</span><input type="number" id="gajiCutoffInput" min="1" max="28"
+              value="10"></div>
+        </div>
+
+        <div class="field-group">
           <label class="title">Kelompok Jadwal Mingguan</label>
           <div class="hint" style="margin-bottom:10px;">Atur jam masuk &amp; jam pulang tiap kelompok guru, per hari
             (Senin–Sabtu). Kolom yang masih berupa perkiraan bisa langsung diedit di sini.</div>
@@ -1068,7 +1078,8 @@
         { id: 'grp_staf_siang', name: 'Staf / Shift Siang (umum)', week: defaultWeek({ 1: ['13:00', '16:30'], 2: ['13:00', '16:30'], 3: ['13:00', '16:30'], 4: ['13:00', '16:30'], 5: ['13:00', '16:30'], 6: ['07:30', '10:00'] }) }
       ],
       assignments: {},
-      manualEmployees: [] // {id, name} - guru tanpa mesin absen, input manual
+      manualEmployees: [], // {id, name} - guru tanpa mesin absen, input manual
+      gajiCutoffDay: 10 // tanggal mulai periode gaji (mis. 10 = periode 10 bulan ini s/d 9 bulan berikutnya)
     };
 
     // ---------- LOCAL PERSISTENCE ----------
@@ -1083,7 +1094,8 @@
             toleransi: settings.toleransi,
             groups: settings.groups,
             assignments: settings.assignments,
-            manualEmployees: settings.manualEmployees
+            manualEmployees: settings.manualEmployees,
+            gajiCutoffDay: settings.gajiCutoffDay
           },
           payrollData,
           googleConfig: { clientId: googleConfig.clientId, sheetId: googleConfig.sheetId },
@@ -1111,6 +1123,7 @@
           if (Array.isArray(payload.settings.groups) && payload.settings.groups.length) settings.groups = payload.settings.groups;
           settings.assignments = payload.settings.assignments || {};
           settings.manualEmployees = Array.isArray(payload.settings.manualEmployees) ? payload.settings.manualEmployees : [];
+          settings.gajiCutoffDay = Number(payload.settings.gajiCutoffDay) || 10;
         }
         if (payload.payrollData) payrollData = payload.payrollData;
         if (payload.googleConfig) googleConfig = payload.googleConfig;
@@ -1524,6 +1537,16 @@
       document.getElementById('toleransiInput').value = settings.toleransi;
       document.getElementById('toleransiInput').onchange = e => { settings.toleransi = parseInt(e.target.value) || 0; };
 
+      document.getElementById('gajiCutoffInput').value = settings.gajiCutoffDay || 10;
+      document.getElementById('gajiCutoffInput').onchange = e => {
+        let v = parseInt(e.target.value) || 10;
+        if (v < 1) v = 1; if (v > 28) v = 28;
+        settings.gajiCutoffDay = v;
+        e.target.value = v;
+        selectedPayrollMonth = null; // pilih ulang periode sesuai cutoff baru
+        saveLocalState();
+      };
+
       renderGroupList();
       document.getElementById('btnAddGroup').onclick = () => {
         const id = 'grp_' + Date.now();
@@ -1683,9 +1706,34 @@
     }
 
     // ---------- GAJI (PAYROLL) ----------
+    // Periode gaji tidak selalu mengikuti bulan kalender: sekolah menggajikan per tanggal cutoff
+    // (mis. tanggal 10), jadi data dari 2 file berbeda (10-31 Juli & 1-10 Agustus) harus digabung
+    // jadi satu periode. periodKey tetap berformat 'YYYY-MM' (bulan tempat periode itu DIMULAI),
+    // supaya kompatibel dengan data payroll/PDF lama, hanya isinya (rentang tanggal) yang berubah.
+    function payrollPeriodKeyForDateStr(dateStr) {
+      const [y, m, d] = dateStr.split('-').map(Number);
+      const cutoff = settings.gajiCutoffDay || 10;
+      if (d >= cutoff) return y + '-' + String(m).padStart(2, '0');
+      let py = y, pm = m - 1;
+      if (pm === 0) { pm = 12; py -= 1; }
+      return py + '-' + String(pm).padStart(2, '0');
+    }
+
     function fmtMonthLabel(yyyyMM) {
+      const cutoff = settings.gajiCutoffDay || 10;
       const [y, m] = yyyyMM.split('-').map(Number);
-      return new Date(y, m - 1, 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+      if (cutoff <= 1) {
+        // cutoff tanggal 1 = mengikuti bulan kalender biasa
+        return new Date(y, m - 1, 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+      }
+      const start = new Date(y, m - 1, cutoff);
+      let ny = y, nm = m + 1;
+      if (nm === 13) { nm = 1; ny += 1; }
+      const end = new Date(ny, nm - 1, cutoff - 1);
+      const sameYear = start.getFullYear() === end.getFullYear();
+      const startLabel = start.toLocaleDateString('id-ID', sameYear ? { day: 'numeric', month: 'long' } : { day: 'numeric', month: 'long', year: 'numeric' });
+      const endLabel = end.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+      return startLabel + ' – ' + endLabel;
     }
 
     function formatRupiah(n) {
@@ -1693,13 +1741,13 @@
       return 'Rp' + n.toLocaleString('id-ID');
     }
 
-    function computeMonthlyHadir(emp, yyyyMM) {
+    function computeMonthlyHadir(emp, periodKey) {
       const { rows } = computeEmployeeReport(emp);
-      return rows.filter(r => r.dateStr.startsWith(yyyyMM) && (r.tagClass === 'tag-ok' || r.tagClass === 'tag-late')).length;
+      return rows.filter(r => payrollPeriodKeyForDateStr(r.dateStr) === periodKey && (r.tagClass === 'tag-ok' || r.tagClass === 'tag-late')).length;
     }
 
-    // Returns (and lazily creates) this month's payroll entry, carrying forward
-    // honorPokok, biayaTransport, and honorLainnya from the latest earlier month.
+    // Returns (and lazily creates) this period's payroll entry, carrying forward
+    // honorPokok, biayaTransport, and honorLainnya from the latest earlier period.
     function getPayrollEntry(empId, yyyyMM) {
       if (!payrollData[empId]) payrollData[empId] = {};
       if (payrollData[empId][yyyyMM]) return payrollData[empId][yyyyMM];
@@ -1721,18 +1769,18 @@
 
     function populateGajiMonthSelect() {
       const sel = document.getElementById('gajiMonthSelect');
-      const months = Array.from(new Set(allDates.map(d => d.slice(0, 7)))).sort();
-      if (months.length === 0) {
+      const periods = Array.from(new Set(allDates.map(d => payrollPeriodKeyForDateStr(d)))).sort();
+      if (periods.length === 0) {
         const now = new Date();
-        months.push(now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0'));
+        periods.push(payrollPeriodKeyForDateStr(toLocalDateStr(now)));
       }
       sel.innerHTML = '';
-      months.forEach(m => {
+      periods.forEach(p => {
         const opt = document.createElement('option');
-        opt.value = m; opt.textContent = fmtMonthLabel(m);
+        opt.value = p; opt.textContent = fmtMonthLabel(p);
         sel.appendChild(opt);
       });
-      if (!selectedPayrollMonth || !months.includes(selectedPayrollMonth)) selectedPayrollMonth = months[months.length - 1];
+      if (!selectedPayrollMonth || !periods.includes(selectedPayrollMonth)) selectedPayrollMonth = periods[periods.length - 1];
       sel.value = selectedPayrollMonth;
       sel.onchange = () => { selectedPayrollMonth = sel.value; renderGajiView(); };
     }
@@ -2091,7 +2139,8 @@
           toleransi: settings.toleransi,
           groups: settings.groups,
           assignments: settings.assignments,
-          manualEmployees: settings.manualEmployees
+          manualEmployees: settings.manualEmployees,
+          gajiCutoffDay: settings.gajiCutoffDay
         });
         const payrollJson = JSON.stringify(payrollData);
         await writeSheetValues('Pengaturan', [
@@ -2128,6 +2177,7 @@
           if (Array.isArray(s.groups) && s.groups.length) settings.groups = s.groups;
           settings.assignments = s.assignments || {};
           settings.manualEmployees = Array.isArray(s.manualEmployees) ? s.manualEmployees : [];
+          settings.gajiCutoffDay = Number(s.gajiCutoffDay) || 10;
         }
         if (map.payroll_json) {
           payrollData = JSON.parse(map.payroll_json);
