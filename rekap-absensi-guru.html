@@ -1,667 +1,1369 @@
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Rekap Absensi Guru</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
-<script src="https://accounts.google.com/gsi/client" async defer></script>
-<style>
-  :root{
-    --bg:#F3F6F5;
-    --surface:#FFFFFF;
-    --ink:#15302A;
-    --ink-soft:#4B615B;
-    --line:#DCE6E2;
-    --primary:#146356;
-    --primary-dark:#0C4139;
-    --primary-tint:#E3F0EC;
-    --gold:#B8860B;
-    --gold-tint:#FBF3DC;
-    --ok:#1F7A5C;
-    --ok-tint:#E3F3EC;
-    --late:#B23A2E;
-    --late-tint:#FBEAE7;
-    --alpha:#C2760A;
-    --alpha-tint:#FCEFDC;
-    --off:#7C8B87;
-    --off-tint:#EDF1F0;
-    --radius:10px;
-    --shadow: 0 1px 2px rgba(21,48,42,0.06), 0 6px 20px rgba(21,48,42,0.05);
-  }
-  *{box-sizing:border-box;}
-  body{margin:0; font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background:var(--bg); color:var(--ink);}
-  .topbar{background:var(--primary-dark); color:#fff; padding:18px 28px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;}
-  .brand{display:flex; flex-direction:column; gap:2px;}
-  .brand .eyebrow{font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold); font-weight:700;}
-  .brand h1{margin:0; font-size:19px; font-weight:700;}
-  .topbar-actions{display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
-  button, .btn{font-family:inherit; cursor:pointer; border:none; border-radius:8px; padding:9px 16px; font-size:13.5px; font-weight:600; transition: transform .06s ease, background .15s ease;}
-  button:active{transform:scale(0.97);}
-  .btn-primary{background:var(--gold); color:#3A2900;}
-  .btn-primary:hover{background:#CC960F;}
-  .btn-ghost{background:rgba(255,255,255,0.12); color:#fff;}
-  .btn-ghost:hover{background:rgba(255,255,255,0.2);}
-  .btn-outline{background:#fff; color:var(--primary); border:1px solid var(--line);}
-  .btn-outline:hover{background:var(--primary-tint);}
-  .btn-sm{padding:6px 10px; font-size:12.5px;}
-  input[type=file]{display:none;}
-  .period-line{color:rgba(255,255,255,0.85); font-size:12.5px; margin-top:2px;}
-  .file-chips{display:flex; gap:6px; flex-wrap:wrap; margin-top:6px;}
-  .file-chip{background:rgba(255,255,255,0.14); color:#fff; border-radius:20px; padding:3px 10px 3px 12px; font-size:11.5px; display:flex; align-items:center; gap:6px;}
-  .file-chip button{background:transparent; color:#fff; padding:0 2px; font-size:12px;}
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rekap Absensi Guru</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <style>
+    :root {
+      --bg: #F3F6F5;
+      --surface: #FFFFFF;
+      --ink: #15302A;
+      --ink-soft: #4B615B;
+      --line: #DCE6E2;
+      --primary: #146356;
+      --primary-dark: #0C4139;
+      --primary-tint: #E3F0EC;
+      --gold: #B8860B;
+      --gold-tint: #FBF3DC;
+      --ok: #1F7A5C;
+      --ok-tint: #E3F3EC;
+      --late: #B23A2E;
+      --late-tint: #FBEAE7;
+      --alpha: #C2760A;
+      --alpha-tint: #FCEFDC;
+      --off: #7C8B87;
+      --off-tint: #EDF1F0;
+      --radius: 10px;
+      --shadow: 0 1px 2px rgba(21, 48, 42, 0.06), 0 6px 20px rgba(21, 48, 42, 0.05);
+    }
 
-  .layout{display:flex; min-height:calc(100vh - 66px);}
-  .sidebar{width:270px; flex-shrink:0; background:var(--surface); border-right:1px solid var(--line); padding:18px 14px; overflow-y:auto;}
-  .sidebar h3{font-size:11px; text-transform:uppercase; letter-spacing:.1em; color:var(--ink-soft); margin:4px 6px 10px;}
-  .guru-item{display:flex; align-items:center; justify-content:space-between; padding:10px 10px; border-radius:8px; cursor:pointer; margin-bottom:2px;}
-  .guru-item:hover{background:var(--primary-tint);}
-  .guru-item.active{background:var(--primary); color:#fff;}
-  .guru-name{font-size:13.5px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-  .badges{display:flex; gap:6px; font-size:11px; font-weight:700;}
-  .badges .b-late{color:var(--late);}
-  .badges .b-alpha{color:var(--alpha);}
-  .badges .b-ratio{color:var(--ink-soft); font-weight:700;}
-  .guru-item.active .b-late, .guru-item.active .b-alpha{color:#FFE9E4;}
-  .guru-item.active .b-ratio{color:rgba(255,255,255,0.85);}
+    * {
+      box-sizing: border-box;
+    }
 
-  .main{flex:1; padding:26px 30px; overflow-x:auto;}
-  .empty-state{max-width:560px; margin:60px auto; text-align:center; background:var(--surface); border:1px dashed var(--line); border-radius:var(--radius); padding:46px 30px;}
-  .empty-state h2{margin-top:0;}
-  .empty-state p{color:var(--ink-soft); line-height:1.6;}
-  .dropzone{border:2px dashed var(--primary); border-radius:var(--radius); padding:26px; margin-top:18px; color:var(--primary); font-weight:600; cursor:pointer;}
-  .dropzone.dragover{background:var(--primary-tint);}
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+    }
 
-  .stat-cards{display:flex; gap:14px; flex-wrap:wrap; margin-bottom:20px;}
-  .stat-card{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:14px 18px; min-width:130px; box-shadow:var(--shadow);}
-  .stat-card .num{font-size:26px; font-weight:800; line-height:1;}
-  .stat-card .label{font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-soft); margin-top:6px;}
-  .stat-card.ok .num{color:var(--ok);}
-  .stat-card.late .num{color:var(--late);}
-  .stat-card.alpha .num{color:var(--alpha);}
-  .stat-card.off .num{color:var(--off);}
-  .stat-card.total{background:var(--primary-dark); border-color:var(--primary-dark);}
-  .stat-card.total .num{color:#fff; font-size:24px;}
-  .stat-card.total .label{color:rgba(255,255,255,0.75);}
+    .topbar {
+      background: var(--primary-dark);
+      color: #fff;
+      padding: 18px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
 
-  .panel{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); margin-bottom:22px;}
-  .panel-head{display:flex; align-items:center; justify-content:space-between; padding:14px 18px; border-bottom:1px solid var(--line); flex-wrap:wrap; gap:10px;}
-  .panel-head h2{margin:0; font-size:15.5px;}
-  .panel-body{padding:16px 18px;}
+    .brand {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
 
-  table{width:100%; border-collapse:collapse; font-size:13px;}
-  th, td{padding:9px 10px; text-align:left; border-bottom:1px solid var(--line); white-space:nowrap;}
-  th{background:var(--primary-tint); color:var(--primary-dark); font-size:11.5px; text-transform:uppercase; letter-spacing:.05em; font-weight:700;}
-  tr:last-child td{border-bottom:none;}
-  .tag{display:inline-block; padding:3px 9px; border-radius:20px; font-size:11.5px; font-weight:700;}
-  .tag-ok{background:var(--ok-tint); color:var(--ok);}
-  .tag-late{background:var(--late-tint); color:var(--late);}
-  .tag-alpha{background:var(--alpha-tint); color:var(--alpha);}
-  .tag-off{background:var(--off-tint); color:var(--off);}
-  .row-weekend{background:#FAFBFA;}
+    .brand .eyebrow {
+      font-size: 11px;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--gold);
+      font-weight: 700;
+    }
 
-  .overlay{position:fixed; inset:0; background:rgba(15,25,22,0.45); display:none; align-items:flex-start; justify-content:center; z-index:50; padding:40px 16px; overflow-y:auto;}
-  .overlay.show{display:flex;}
-  .modal{background:var(--surface); border-radius:14px; width:100%; max-width:760px; box-shadow:0 20px 60px rgba(0,0,0,0.25);}
-  .modal-head{display:flex; justify-content:space-between; align-items:center; padding:18px 22px; border-bottom:1px solid var(--line);}
-  .modal-head h2{margin:0; font-size:17px;}
-  .modal-body{padding:20px 22px; max-height:70vh; overflow-y:auto;}
-  .modal-foot{padding:14px 22px; border-top:1px solid var(--line); display:flex; justify-content:flex-end; gap:10px;}
-  .field-group{margin-bottom:24px;}
-  .field-group > label.title{display:block; font-weight:700; font-size:13.5px; margin-bottom:8px;}
-  .hint{color:var(--ink-soft); font-size:12px; margin-top:4px;}
-  .dow-grid{display:flex; gap:8px; flex-wrap:wrap;}
-  .dow-chip{border:1px solid var(--line); border-radius:20px; padding:6px 14px; font-size:12.5px; cursor:pointer; user-select:none;}
-  .dow-chip.active{background:var(--primary); border-color:var(--primary); color:#fff;}
-  .holiday-row, .assign-row{display:flex; gap:8px; align-items:center; margin-bottom:8px;}
-  .holiday-row input[type=date]{flex:1;}
-  input[type=text], input[type=date], input[type=time], input[type=number], select{
-    font-family:inherit; padding:7px 9px; border:1px solid var(--line); border-radius:6px; font-size:13px; background:#fff; color:var(--ink);
-  }
-  .icon-btn{background:var(--off-tint); color:var(--ink-soft); border-radius:6px; width:28px; height:28px; display:flex; align-items:center; justify-content:center; padding:0; font-size:14px;}
-  .icon-btn:hover{background:var(--late-tint); color:var(--late);}
-  .assign-row .guru-label{flex:1; font-size:13px;}
-  .assign-row select{flex-shrink:0; width:190px;}
-  .tol-row{display:flex; align-items:center; gap:10px;}
-  .tol-row input{width:80px;}
+    .brand h1 {
+      margin: 0;
+      font-size: 19px;
+      font-weight: 700;
+    }
 
-  .group-card{border:1px solid var(--line); border-radius:8px; padding:12px 14px; margin-bottom:14px; background:#FBFDFC;}
-  .group-card-head{display:flex; gap:8px; align-items:center; margin-bottom:10px;}
-  .group-card-head input[type=text]{flex:1; font-weight:700;}
-  .week-grid{display:grid; grid-template-columns:repeat(6, 1fr); gap:8px;}
-  .week-cell{background:#fff; border:1px solid var(--line); border-radius:6px; padding:6px; text-align:center;}
-  .week-cell .dname{font-size:10.5px; font-weight:700; color:var(--ink-soft); text-transform:uppercase; margin-bottom:5px;}
-  .week-cell input[type=time]{width:100%; padding:4px; font-size:11.5px; margin-bottom:4px;}
-  .week-cell .lbl{font-size:9.5px; color:var(--ink-soft);}
+    .topbar-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
 
-  .view-tabs{display:flex; gap:4px; background:var(--off-tint); border-radius:8px; padding:3px;}
-  .view-tab{padding:7px 14px; border-radius:6px; font-size:12.5px; font-weight:700; color:var(--ink-soft); cursor:pointer; user-select:none;}
-  .view-tab.active{background:#fff; color:var(--primary-dark); box-shadow:var(--shadow);}
+    button,
+    .btn {
+      font-family: inherit;
+      cursor: pointer;
+      border: none;
+      border-radius: 8px;
+      padding: 9px 16px;
+      font-size: 13.5px;
+      font-weight: 600;
+      transition: transform .06s ease, background .15s ease;
+    }
 
-  .gaji-grid{display:grid; grid-template-columns:1fr 1fr; gap:18px;}
-  @media(max-width:820px){ .gaji-grid{grid-template-columns:1fr;} }
-  .gaji-box{border:1px solid var(--line); border-radius:8px; padding:14px 16px; background:#FBFDFC;}
-  .gaji-box h4{margin:0 0 10px; font-size:13px; color:var(--primary-dark);}
-  .gaji-field{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px;}
-  .gaji-field label{font-size:12.5px; color:var(--ink-soft); flex:1;}
-  .gaji-field input{width:150px; text-align:right;}
-  .gaji-field .readonly{width:150px; text-align:right; font-weight:700; font-size:13px;}
-  .gaji-lain-row{display:flex; gap:6px; align-items:center; margin-bottom:6px;}
-  .gaji-lain-row input[type=text]{flex:1;}
-  .gaji-lain-row input[type=number]{width:120px; text-align:right;}
-  .gaji-total-box{background:var(--primary-dark); border-radius:8px; padding:16px 18px; color:#fff; margin-top:14px;}
-  .gaji-total-box .lbl{font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; color:rgba(255,255,255,0.75);}
-  .gaji-total-box .num{font-size:26px; font-weight:800; margin-top:4px;}
-  .gaji-breakdown{font-size:12px; color:rgba(255,255,255,0.85); margin-top:8px; line-height:1.7;}
-  .month-select{margin-left:8px;}
+    button:active {
+      transform: scale(0.97);
+    }
 
-  .sync-status{display:flex; align-items:center; gap:8px; font-size:12.5px; margin:10px 0;}
-  .dot{width:8px; height:8px; border-radius:50%; background:var(--off);}
-  .dot.on{background:var(--ok);}
-  .sync-actions{display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;}
-  details.help-box{border:1px solid var(--line); border-radius:8px; padding:10px 12px; margin-top:10px; background:#FBFDFC;}
-  details.help-box summary{cursor:pointer; font-weight:700; font-size:12.5px; color:var(--primary);}
-  details.help-box ol{margin:10px 0 0; padding-left:18px; font-size:12.5px; color:var(--ink-soft); line-height:1.7;}
-  details.help-box a{color:var(--primary);}
-</style>
+    .btn-primary {
+      background: var(--gold);
+      color: #3A2900;
+    }
+
+    .btn-primary:hover {
+      background: #CC960F;
+    }
+
+    .btn-ghost {
+      background: rgba(255, 255, 255, 0.12);
+      color: #fff;
+    }
+
+    .btn-ghost:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .btn-outline {
+      background: #fff;
+      color: var(--primary);
+      border: 1px solid var(--line);
+    }
+
+    .btn-outline:hover {
+      background: var(--primary-tint);
+    }
+
+    .btn-sm {
+      padding: 6px 10px;
+      font-size: 12.5px;
+    }
+
+    input[type=file] {
+      display: none;
+    }
+
+    .period-line {
+      color: rgba(255, 255, 255, 0.85);
+      font-size: 12.5px;
+      margin-top: 2px;
+    }
+
+    .file-chips {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 6px;
+    }
+
+    .file-chip {
+      background: rgba(255, 255, 255, 0.14);
+      color: #fff;
+      border-radius: 20px;
+      padding: 3px 10px 3px 12px;
+      font-size: 11.5px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .file-chip button {
+      background: transparent;
+      color: #fff;
+      padding: 0 2px;
+      font-size: 12px;
+    }
+
+    .layout {
+      display: flex;
+      min-height: calc(100vh - 66px);
+    }
+
+    .sidebar {
+      width: 270px;
+      flex-shrink: 0;
+      background: var(--surface);
+      border-right: 1px solid var(--line);
+      padding: 18px 14px;
+      overflow-y: auto;
+    }
+
+    .sidebar h3 {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: var(--ink-soft);
+      margin: 4px 6px 10px;
+    }
+
+    .guru-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-bottom: 2px;
+    }
+
+    .guru-item:hover {
+      background: var(--primary-tint);
+    }
+
+    .guru-item.active {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .guru-name {
+      font-size: 13.5px;
+      font-weight: 600;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .badges {
+      display: flex;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .badges .b-late {
+      color: var(--late);
+    }
+
+    .badges .b-alpha {
+      color: var(--alpha);
+    }
+
+    .badges .b-ratio {
+      color: var(--ink-soft);
+      font-weight: 700;
+    }
+
+    .guru-item.active .b-late,
+    .guru-item.active .b-alpha {
+      color: #FFE9E4;
+    }
+
+    .guru-item.active .b-ratio {
+      color: rgba(255, 255, 255, 0.85);
+    }
+
+    .main {
+      flex: 1;
+      padding: 26px 30px;
+      overflow-x: auto;
+    }
+
+    .empty-state {
+      max-width: 560px;
+      margin: 60px auto;
+      text-align: center;
+      background: var(--surface);
+      border: 1px dashed var(--line);
+      border-radius: var(--radius);
+      padding: 46px 30px;
+    }
+
+    .empty-state h2 {
+      margin-top: 0;
+    }
+
+    .empty-state p {
+      color: var(--ink-soft);
+      line-height: 1.6;
+    }
+
+    .dropzone {
+      border: 2px dashed var(--primary);
+      border-radius: var(--radius);
+      padding: 26px;
+      margin-top: 18px;
+      color: var(--primary);
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .dropzone.dragover {
+      background: var(--primary-tint);
+    }
+
+    .stat-cards {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 14px 18px;
+      min-width: 130px;
+      box-shadow: var(--shadow);
+    }
+
+    .stat-card .num {
+      font-size: 26px;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .stat-card .label {
+      font-size: 11.5px;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--ink-soft);
+      margin-top: 6px;
+    }
+
+    .stat-card.ok .num {
+      color: var(--ok);
+    }
+
+    .stat-card.late .num {
+      color: var(--late);
+    }
+
+    .stat-card.alpha .num {
+      color: var(--alpha);
+    }
+
+    .stat-card.off .num {
+      color: var(--off);
+    }
+
+    .stat-card.total {
+      background: var(--primary-dark);
+      border-color: var(--primary-dark);
+    }
+
+    .stat-card.total .num {
+      color: #fff;
+      font-size: 24px;
+    }
+
+    .stat-card.total .label {
+      color: rgba(255, 255, 255, 0.75);
+    }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      margin-bottom: 22px;
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--line);
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .panel-head h2 {
+      margin: 0;
+      font-size: 15.5px;
+    }
+
+    .panel-body {
+      padding: 16px 18px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    th,
+    td {
+      padding: 9px 10px;
+      text-align: left;
+      border-bottom: 1px solid var(--line);
+      white-space: nowrap;
+    }
+
+    th {
+      background: var(--primary-tint);
+      color: var(--primary-dark);
+      font-size: 11.5px;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      font-weight: 700;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    .tag {
+      display: inline-block;
+      padding: 3px 9px;
+      border-radius: 20px;
+      font-size: 11.5px;
+      font-weight: 700;
+    }
+
+    .tag-ok {
+      background: var(--ok-tint);
+      color: var(--ok);
+    }
+
+    .tag-late {
+      background: var(--late-tint);
+      color: var(--late);
+    }
+
+    .tag-alpha {
+      background: var(--alpha-tint);
+      color: var(--alpha);
+    }
+
+    .tag-off {
+      background: var(--off-tint);
+      color: var(--off);
+    }
+
+    .row-weekend {
+      background: #FAFBFA;
+    }
+
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 25, 22, 0.45);
+      display: none;
+      align-items: flex-start;
+      justify-content: center;
+      z-index: 50;
+      padding: 40px 16px;
+      overflow-y: auto;
+    }
+
+    .overlay.show {
+      display: flex;
+    }
+
+    .modal {
+      background: var(--surface);
+      border-radius: 14px;
+      width: 100%;
+      max-width: 760px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+    }
+
+    .modal-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 18px 22px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .modal-head h2 {
+      margin: 0;
+      font-size: 17px;
+    }
+
+    .modal-body {
+      padding: 20px 22px;
+      max-height: 70vh;
+      overflow-y: auto;
+    }
+
+    .modal-foot {
+      padding: 14px 22px;
+      border-top: 1px solid var(--line);
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    .field-group {
+      margin-bottom: 24px;
+    }
+
+    .field-group>label.title {
+      display: block;
+      font-weight: 700;
+      font-size: 13.5px;
+      margin-bottom: 8px;
+    }
+
+    .hint {
+      color: var(--ink-soft);
+      font-size: 12px;
+      margin-top: 4px;
+    }
+
+    .dow-grid {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .dow-chip {
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 6px 14px;
+      font-size: 12.5px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .dow-chip.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+    }
+
+    .holiday-row,
+    .assign-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .holiday-row input[type=date] {
+      flex: 1;
+    }
+
+    input[type=text],
+    input[type=date],
+    input[type=time],
+    input[type=number],
+    select {
+      font-family: inherit;
+      padding: 7px 9px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      font-size: 13px;
+      background: #fff;
+      color: var(--ink);
+    }
+
+    .icon-btn {
+      background: var(--off-tint);
+      color: var(--ink-soft);
+      border-radius: 6px;
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      font-size: 14px;
+    }
+
+    .icon-btn:hover {
+      background: var(--late-tint);
+      color: var(--late);
+    }
+
+    .assign-row .guru-label {
+      flex: 1;
+      font-size: 13px;
+    }
+
+    .assign-row select {
+      flex-shrink: 0;
+      width: 190px;
+    }
+
+    .tol-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .tol-row input {
+      width: 80px;
+    }
+
+    .group-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-bottom: 14px;
+      background: #FBFDFC;
+    }
+
+    .group-card-head {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .group-card-head input[type=text] {
+      flex: 1;
+      font-weight: 700;
+    }
+
+    .week-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 8px;
+    }
+
+    .week-cell {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 6px;
+      text-align: center;
+    }
+
+    .week-cell .dname {
+      font-size: 10.5px;
+      font-weight: 700;
+      color: var(--ink-soft);
+      text-transform: uppercase;
+      margin-bottom: 5px;
+    }
+
+    .week-cell input[type=time] {
+      width: 100%;
+      padding: 4px;
+      font-size: 11.5px;
+      margin-bottom: 4px;
+    }
+
+    .week-cell .lbl {
+      font-size: 9.5px;
+      color: var(--ink-soft);
+    }
+
+    .view-tabs {
+      display: flex;
+      gap: 4px;
+      background: var(--off-tint);
+      border-radius: 8px;
+      padding: 3px;
+    }
+
+    .view-tab {
+      padding: 7px 14px;
+      border-radius: 6px;
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--ink-soft);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .view-tab.active {
+      background: #fff;
+      color: var(--primary-dark);
+      box-shadow: var(--shadow);
+    }
+
+    .gaji-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+
+    @media(max-width:820px) {
+      .gaji-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .gaji-box {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px 16px;
+      background: #FBFDFC;
+    }
+
+    .gaji-box h4 {
+      margin: 0 0 10px;
+      font-size: 13px;
+      color: var(--primary-dark);
+    }
+
+    .gaji-field {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .gaji-field label {
+      font-size: 12.5px;
+      color: var(--ink-soft);
+      flex: 1;
+    }
+
+    .gaji-field input {
+      width: 150px;
+      text-align: right;
+    }
+
+    .gaji-field .readonly {
+      width: 150px;
+      text-align: right;
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    .gaji-lain-row {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+
+    .gaji-lain-row input[type=text] {
+      flex: 1;
+    }
+
+    .gaji-lain-row input[type=number] {
+      width: 120px;
+      text-align: right;
+    }
+
+    .gaji-total-box {
+      background: var(--primary-dark);
+      border-radius: 8px;
+      padding: 16px 18px;
+      color: #fff;
+      margin-top: 14px;
+    }
+
+    .gaji-total-box .lbl {
+      font-size: 11.5px;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: rgba(255, 255, 255, 0.75);
+    }
+
+    .gaji-total-box .num {
+      font-size: 26px;
+      font-weight: 800;
+      margin-top: 4px;
+    }
+
+    .gaji-breakdown {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.85);
+      margin-top: 8px;
+      line-height: 1.7;
+    }
+
+    .month-select {
+      margin-left: 8px;
+    }
+
+    .sync-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12.5px;
+      margin: 10px 0;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--off);
+    }
+
+    .dot.on {
+      background: var(--ok);
+    }
+
+    .sync-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+
+    details.help-box {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-top: 10px;
+      background: #FBFDFC;
+    }
+
+    details.help-box summary {
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 12.5px;
+      color: var(--primary);
+    }
+
+    details.help-box ol {
+      margin: 10px 0 0;
+      padding-left: 18px;
+      font-size: 12.5px;
+      color: var(--ink-soft);
+      line-height: 1.7;
+    }
+
+    details.help-box a {
+      color: var(--primary);
+    }
+  </style>
 </head>
+
 <body>
 
-<div class="topbar">
-  <div class="brand">
-    <span class="eyebrow">Yayasan Ulul Fikri</span>
-    <h1>Rekap Absensi Guru</h1>
-    <div class="period-line" id="periodLine">Belum ada data — silakan upload file laporan mesin absen.</div>
-    <div class="file-chips" id="fileChips"></div>
-  </div>
-  <div class="topbar-actions">
-    <button class="btn-ghost" id="btnExportAllPdf">⬇ PDF Semua Guru</button>
-    <button class="btn-outline" id="btnSettings">⚙ Pengaturan</button>
-    <label class="btn btn-primary" for="fileInput">⭱ Upload File</label>
-    <input type="file" id="fileInput" accept=".xls,.xlsx" multiple>
-  </div>
-</div>
-
-<div class="layout">
-  <div class="sidebar" id="sidebar" style="display:none;">
-    <h3>Daftar Guru</h3>
-    <div id="guruList"></div>
+  <div class="topbar">
+    <div class="brand">
+      <span class="eyebrow">Yayasan Ulul Fikri</span>
+      <h1>Rekap Absensi Guru</h1>
+      <div class="period-line" id="periodLine">Belum ada data — silakan upload file laporan mesin absen.</div>
+      <div class="file-chips" id="fileChips"></div>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn-ghost" id="btnExportAllPdf">⬇ PDF Semua Guru</button>
+      <button class="btn-outline" id="btnSettings">⚙ Pengaturan</button>
+      <label class="btn btn-primary" for="fileInput">⭱ Upload File</label>
+      <input type="file" id="fileInput" accept=".xls,.xlsx" multiple>
+    </div>
   </div>
 
-  <div class="main" id="main">
-    <div class="empty-state" id="emptyState">
-      <h2>Belum ada data absensi</h2>
-      <p>Upload file hasil export dari mesin absen Solution P207 (format .xls / .xlsx). Kalau periode absensi sekolah dari tanggal 10 ke tanggal 10, upload kedua file bulan yang bersangkutan sekaligus (bisa pilih lebih dari satu file) — datanya akan digabung otomatis. Aplikasi membaca sheet <b>"Lap. Log Absen"</b>.</p>
-      <div class="dropzone" id="dropzone">Klik atau seret file .xls / .xlsx ke sini (bisa lebih dari satu)</div>
+  <div class="layout">
+    <div class="sidebar" id="sidebar" style="display:none;">
+      <h3>Daftar Guru</h3>
+      <div id="guruList"></div>
     </div>
 
-    <div id="dataArea" style="display:none;">
-      <div class="stat-cards" id="statCards"></div>
+    <div class="main" id="main">
+      <div class="empty-state" id="emptyState">
+        <h2>Belum ada data absensi</h2>
+        <p>Upload file hasil export dari mesin absen Solution P207 (format .xls / .xlsx). Kalau periode absensi sekolah
+          dari tanggal 10 ke tanggal 10, upload kedua file bulan yang bersangkutan sekaligus (bisa pilih lebih dari satu
+          file) — datanya akan digabung otomatis. Aplikasi membaca sheet <b>"Lap. Log Absen"</b>.</p>
+        <div class="dropzone" id="dropzone">Klik atau seret file .xls / .xlsx ke sini (bisa lebih dari satu)</div>
+      </div>
 
-      <div class="panel">
-        <div class="panel-head">
-          <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
-            <h2 id="detailTitle">Rekap Harian</h2>
-            <div class="view-tabs" id="viewTabs">
-              <div class="view-tab active" data-view="rekap">Rekap Harian</div>
-              <div class="view-tab" data-view="gaji">Gaji</div>
+      <div id="dataArea" style="display:none;">
+        <div class="stat-cards" id="statCards"></div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
+              <h2 id="detailTitle">Rekap Harian</h2>
+              <div class="view-tabs" id="viewTabs">
+                <div class="view-tab active" data-view="rekap">Rekap Harian</div>
+                <div class="view-tab" data-view="gaji">Gaji</div>
+              </div>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;" id="rekapActions">
+              <select id="groupAssignQuick" style="min-width:200px;"></select>
+              <button class="btn-outline btn-sm" id="btnExportCsv">Unduh CSV</button>
+              <button class="btn-primary btn-sm" id="btnExportPdf">⬇ Unduh PDF</button>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; display:none;" id="gajiActions">
+              <select id="gajiMonthSelect" class="month-select"></select>
+              <button class="btn-primary btn-sm" id="btnExportSlip">⬇ Unduh Slip Gaji</button>
             </div>
           </div>
-          <div style="display:flex; gap:8px; flex-wrap:wrap;" id="rekapActions">
-            <select id="groupAssignQuick" style="min-width:200px;"></select>
-            <button class="btn-outline btn-sm" id="btnExportCsv">Unduh CSV</button>
-            <button class="btn-primary btn-sm" id="btnExportPdf">⬇ Unduh PDF</button>
+          <div class="panel-body" style="overflow-x:auto;" id="rekapView">
+            <table>
+              <thead>
+                <tr>
+                  <th>Tanggal</th>
+                  <th>Hari</th>
+                  <th>Jam Masuk</th>
+                  <th>Jam Keluar</th>
+                  <th>Keterangan</th>
+                </tr>
+              </thead>
+              <tbody id="detailTbody"></tbody>
+            </table>
           </div>
-          <div style="display:flex; gap:8px; flex-wrap:wrap; display:none;" id="gajiActions">
-            <select id="gajiMonthSelect" class="month-select"></select>
-            <button class="btn-primary btn-sm" id="btnExportSlip">⬇ Unduh Slip Gaji</button>
-          </div>
+          <div class="panel-body" id="gajiView" style="display:none;"></div>
         </div>
-        <div class="panel-body" style="overflow-x:auto;" id="rekapView">
-          <table>
-            <thead><tr><th>Tanggal</th><th>Hari</th><th>Jam Masuk</th><th>Jam Keluar</th><th>Keterangan</th></tr></thead>
-            <tbody id="detailTbody"></tbody>
-          </table>
-        </div>
-        <div class="panel-body" id="gajiView" style="display:none;"></div>
       </div>
     </div>
   </div>
-</div>
 
-<!-- SETTINGS MODAL -->
-<div class="overlay" id="settingsOverlay">
-  <div class="modal">
-    <div class="modal-head">
-      <h2>Pengaturan Absensi</h2>
-      <button class="icon-btn" id="btnCloseSettings">✕</button>
-    </div>
-    <div class="modal-body">
-
-      <div class="field-group">
-        <label class="title">Hari Masuk (Hari Sekolah)</label>
-        <div class="dow-grid" id="dowGrid"></div>
-        <div class="hint">Hari yang tidak dipilih otomatis dianggap "Libur" untuk semua guru.</div>
+  <!-- SETTINGS MODAL -->
+  <div class="overlay" id="settingsOverlay">
+    <div class="modal">
+      <div class="modal-head">
+        <h2>Pengaturan Absensi</h2>
+        <button class="icon-btn" id="btnCloseSettings">✕</button>
       </div>
+      <div class="modal-body">
 
-      <div class="field-group">
-        <label class="title">Hari Libur Tambahan</label>
-        <div id="holidayList"></div>
-        <div class="holiday-row">
-          <input type="date" id="newHolidayDate">
-          <button class="btn-outline btn-sm" id="btnAddHoliday">+ Tambah</button>
+        <div class="field-group">
+          <label class="title">Hari Masuk (Hari Sekolah)</label>
+          <div class="dow-grid" id="dowGrid"></div>
+          <div class="hint">Hari yang tidak dipilih otomatis dianggap "Libur" untuk semua guru.</div>
         </div>
-        <div class="hint">Contoh: tanggal merah nasional / cuti bersama yang jatuh di hari sekolah.</div>
-      </div>
 
-      <div class="field-group">
-        <label class="title">Toleransi Keterlambatan / Pulang Cepat</label>
-        <div class="tol-row"><input type="number" id="toleransiInput" min="0" value="2"><span>menit</span></div>
-      </div>
-
-      <div class="field-group">
-        <label class="title">Kelompok Jadwal Mingguan</label>
-        <div class="hint" style="margin-bottom:10px;">Atur jam masuk &amp; jam pulang tiap kelompok guru, per hari (Senin–Sabtu). Kolom yang masih berupa perkiraan bisa langsung diedit di sini.</div>
-        <div id="groupList"></div>
-        <button class="btn-outline btn-sm" id="btnAddGroup">+ Tambah Kelompok</button>
-      </div>
-
-      <div class="field-group">
-        <label class="title">Kelompok per Guru</label>
-        <div id="assignList"></div>
-      </div>
-
-      <div class="field-group">
-        <label class="title">Sinkronisasi Google Sheets</label>
-        <div class="hint">Pengaturan &amp; data gaji bisa disimpan/dimuat dari Google Spreadsheet milik Anda sendiri. Layanan ini <b>gratis</b>, tidak butuh kartu kredit — Anda hanya perlu membuat "OAuth Client ID" sendiri lewat akun Google (gratis, sekali setup).</div>
-        <details class="help-box">
-          <summary>Cara membuat OAuth Client ID (gratis, ± 5 menit)</summary>
-          <ol>
-            <li>Buka <a href="https://console.cloud.google.com/projectcreate" target="_blank" rel="noopener">console.cloud.google.com</a>, buat project baru (gratis).</li>
-            <li>Buka menu <b>APIs & Services → Library</b>, cari <b>Google Sheets API</b>, klik <b>Enable</b>.</li>
-            <li>Buka <b>APIs & Services → OAuth consent screen</b>, pilih tipe <b>External</b>, isi nama app &amp; email, simpan (biarkan status "Testing").</li>
-            <li>Di bagian <b>Test users</b>, tambahkan alamat Gmail yang akan dipakai untuk login ke aplikasi ini.</li>
-            <li>Buka <b>APIs & Services → Credentials → Create Credentials → OAuth client ID</b>, pilih tipe <b>Web application</b>.</li>
-            <li>Di <b>Authorized JavaScript origins</b>, tambahkan alamat tempat file HTML ini dibuka (mis. <code>http://localhost</code> kalau dibuka langsung dari komputer, atau domain hosting Anda).</li>
-            <li>Klik Create, salin <b>Client ID</b> yang muncul, tempel di kolom di bawah ini.</li>
-            <li>Buat Google Spreadsheet kosong, salin ID-nya dari URL (bagian di antara <code>/d/</code> dan <code>/edit</code>), tempel di kolom Spreadsheet ID.</li>
-          </ol>
-        </details>
-        <div class="holiday-row" style="margin-top:12px;">
-          <input type="text" id="googleClientId" placeholder="Google OAuth Client ID (....apps.googleusercontent.com)" style="flex:1;">
+        <div class="field-group">
+          <label class="title">Hari Libur Tambahan</label>
+          <div id="holidayList"></div>
+          <div class="holiday-row">
+            <input type="date" id="newHolidayDate">
+            <button class="btn-outline btn-sm" id="btnAddHoliday">+ Tambah</button>
+          </div>
+          <div class="hint">Contoh: tanggal merah nasional / cuti bersama yang jatuh di hari sekolah.</div>
         </div>
-        <div class="holiday-row">
-          <input type="text" id="googleSheetId" placeholder="ID Google Spreadsheet tujuan" style="flex:1;">
-        </div>
-        <div class="sync-status"><span class="dot" id="syncDot"></span><span id="syncStatusText">Belum terhubung ke Google.</span></div>
-        <div class="sync-actions">
-          <button class="btn-outline btn-sm" id="btnGoogleConnect">🔗 Hubungkan Akun Google</button>
-          <button class="btn-primary btn-sm" id="btnSyncPush">⬆ Simpan ke Spreadsheet</button>
-          <button class="btn-outline btn-sm" id="btnSyncPull">⬇ Muat dari Spreadsheet</button>
-        </div>
-        <div class="hint" style="margin-top:8px;">"Simpan ke Spreadsheet" menulis tab <b>Rekap</b>, <b>Gaji</b>, dan <b>Pengaturan</b> (pengaturan &amp; data gaji tersimpan sebagai data yang bisa dimuat kembali). "Muat dari Spreadsheet" mengembalikan pengaturan &amp; data gaji — data rekap absensi tetap perlu upload ulang file mesin absen.</div>
-      </div>
 
-    </div>
-    <div class="modal-foot">
-      <button class="btn-outline" id="btnCloseSettings2">Tutup</button>
-      <button class="btn-primary" id="btnApplySettings">Terapkan</button>
+        <div class="field-group">
+          <label class="title">Toleransi Keterlambatan / Pulang Cepat</label>
+          <div class="tol-row"><input type="number" id="toleransiInput" min="0" value="2"><span>menit</span></div>
+        </div>
+
+        <div class="field-group">
+          <label class="title">Kelompok Jadwal Mingguan</label>
+          <div class="hint" style="margin-bottom:10px;">Atur jam masuk &amp; jam pulang tiap kelompok guru, per hari
+            (Senin–Sabtu). Kolom yang masih berupa perkiraan bisa langsung diedit di sini.</div>
+          <div id="groupList"></div>
+          <button class="btn-outline btn-sm" id="btnAddGroup">+ Tambah Kelompok</button>
+        </div>
+
+        <div class="field-group">
+          <label class="title">Kelompok per Guru</label>
+          <div id="assignList"></div>
+        </div>
+
+        <div class="field-group">
+          <label class="title">Sinkronisasi Google Sheets</label>
+          <div class="hint">Pengaturan &amp; data gaji bisa disimpan/dimuat dari Google Spreadsheet milik Anda sendiri.
+            Layanan ini <b>gratis</b>, tidak butuh kartu kredit — Anda hanya perlu membuat "OAuth Client ID" sendiri
+            lewat akun Google (gratis, sekali setup).</div>
+          <details class="help-box">
+            <summary>Cara membuat OAuth Client ID (gratis, ± 5 menit)</summary>
+            <ol>
+              <li>Buka <a href="https://console.cloud.google.com/projectcreate" target="_blank"
+                  rel="noopener">console.cloud.google.com</a>, buat project baru (gratis).</li>
+              <li>Buka menu <b>APIs & Services → Library</b>, cari <b>Google Sheets API</b>, klik <b>Enable</b>.</li>
+              <li>Buka <b>APIs & Services → OAuth consent screen</b>, pilih tipe <b>External</b>, isi nama app &amp;
+                email, simpan (biarkan status "Testing").</li>
+              <li>Di bagian <b>Test users</b>, tambahkan alamat Gmail yang akan dipakai untuk login ke aplikasi ini.
+              </li>
+              <li>Buka <b>APIs & Services → Credentials → Create Credentials → OAuth client ID</b>, pilih tipe <b>Web
+                  application</b>.</li>
+              <li>Di <b>Authorized JavaScript origins</b>, tambahkan alamat tempat file HTML ini dibuka (mis.
+                <code>http://localhost</code> kalau dibuka langsung dari komputer, atau domain hosting Anda).
+              </li>
+              <li>Klik Create, salin <b>Client ID</b> yang muncul, tempel di kolom di bawah ini.</li>
+              <li>Buat Google Spreadsheet kosong, salin ID-nya dari URL (bagian di antara <code>/d/</code> dan
+                <code>/edit</code>), tempel di kolom Spreadsheet ID.
+              </li>
+            </ol>
+          </details>
+          <div class="holiday-row" style="margin-top:12px;">
+            <input type="text" id="googleClientId" placeholder="Google OAuth Client ID (....apps.googleusercontent.com)"
+              style="flex:1;">
+          </div>
+          <div class="holiday-row">
+            <input type="text" id="googleSheetId" placeholder="ID Google Spreadsheet tujuan" style="flex:1;">
+          </div>
+          <div class="sync-status"><span class="dot" id="syncDot"></span><span id="syncStatusText">Belum terhubung ke
+              Google.</span></div>
+          <div class="sync-actions">
+            <button class="btn-outline btn-sm" id="btnGoogleConnect">🔗 Hubungkan Akun Google</button>
+            <button class="btn-primary btn-sm" id="btnSyncPush">⬆ Simpan ke Spreadsheet</button>
+            <button class="btn-outline btn-sm" id="btnSyncPull">⬇ Muat dari Spreadsheet</button>
+          </div>
+          <div class="hint" style="margin-top:8px;">"Simpan ke Spreadsheet" menulis tab <b>Rekap</b>, <b>Gaji</b>, dan
+            <b>Pengaturan</b> (pengaturan &amp; data gaji tersimpan sebagai data yang bisa dimuat kembali). "Muat dari
+            Spreadsheet" mengembalikan pengaturan &amp; data gaji — data rekap absensi tetap perlu upload ulang file
+            mesin absen.
+          </div>
+        </div>
+
+      </div>
+      <div class="modal-foot">
+        <button class="btn-outline" id="btnCloseSettings2">Tutup</button>
+        <button class="btn-primary" id="btnApplySettings">Terapkan</button>
+      </div>
     </div>
   </div>
-</div>
 
-<script>
-// ---------- STATE ----------
-const DOW_LABELS = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
-const DOW_ORDER = [1,2,3,4,5,6]; // Senin..Sabtu (used for group week grid)
+  <script>
+    // ---------- STATE ----------
+    const DOW_LABELS = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    const DOW_ORDER = [1, 2, 3, 4, 5, 6]; // Senin..Sabtu (used for group week grid)
 
-let filesData = []; // {fileName, periodStart, periodEnd, blocks:[{id,name,dept,timesByDate:{}}]}
-let employees = {}; // id -> {id,name,dept,records:{dateStr:[times]}}
-let allDates = []; // sorted unique 'YYYY-MM-DD' across all uploaded files
-let selectedEmployeeId = null;
-let currentView = 'rekap'; // 'rekap' | 'gaji'
-let selectedPayrollMonth = null; // 'YYYY-MM'
+    let filesData = []; // {fileName, periodStart, periodEnd, blocks:[{id,name,dept,timesByDate:{}}]}
+    let employees = {}; // id -> {id,name,dept,records:{dateStr:[times]}}
+    let allDates = []; // sorted unique 'YYYY-MM-DD' across all uploaded files
+    let selectedEmployeeId = null;
+    let currentView = 'rekap'; // 'rekap' | 'gaji'
+    let selectedPayrollMonth = null; // 'YYYY-MM'
 
-// payrollData[empId][yyyyMM] = {honorPokok, biayaTransport, hariTidakTercatat, honorLainnya:[{id,label,amount}]}
-let payrollData = {};
+    // payrollData[empId][yyyyMM] = {honorPokok, biayaTransport, hariTidakTercatat, honorLainnya:[{id,label,amount}]}
+    let payrollData = {};
 
-let googleConfig = { clientId:'', sheetId:'' };
-let googleAccessToken = null;
-let googleTokenClient = null;
+    let googleConfig = { clientId: '', sheetId: '' };
+    let googleAccessToken = null;
+    let googleTokenClient = null;
 
-function toLocalDateStr(d){
-  const y = d.getFullYear();
-  const m = String(d.getMonth()+1).padStart(2,'0');
-  const day = String(d.getDate()).padStart(2,'0');
-  return y + '-' + m + '-' + day;
-}
+    function toLocalDateStr(d) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return y + '-' + m + '-' + day;
+    }
 
-function defaultWeek(pairs){
-  // pairs: {1:[masuk,pulang], ...}
-  const week = {};
-  DOW_ORDER.forEach(d => { week[d] = pairs[d] ? {masuk:pairs[d][0], pulang:pairs[d][1]} : null; });
-  return week;
-}
+    function defaultWeek(pairs) {
+      // pairs: {1:[masuk,pulang], ...}
+      const week = {};
+      DOW_ORDER.forEach(d => { week[d] = pairs[d] ? { masuk: pairs[d][0], pulang: pairs[d][1] } : null; });
+      return week;
+    }
 
-let settings = {
-  workdays: new Set([1,2,3,4,5,6]),
-  extraHolidays: [],
-  toleransi: 2,
-  groups: [
-    { id:'grp_intensif13', name:'Intensif Kelas 1-3', week: defaultWeek({1:['07:00','12:30'],2:['07:00','12:30'],3:['07:00','12:30'],4:['07:00','12:30'],5:['07:00','10:00'],6:['07:30','10:00']}) },
-    { id:'grp_intensif46', name:'Intensif Kelas 4-6', week: defaultWeek({1:['07:00','13:30'],2:['07:00','13:30'],3:['07:00','13:30'],4:['07:00','13:30'],5:['07:00','10:00'],6:['07:30','10:00']}) },
-    { id:'grp_reguler1', name:'Reguler Kelas 1', week: defaultWeek({1:['07:00','11:00'],2:['07:00','11:00'],3:['07:00','11:00'],4:['07:00','11:00'],5:['07:00','10:00'],6:['07:30','10:00']}) },
-    { id:'grp_reguler34', name:'Reguler Kelas 3-4 (Siang)', week: defaultWeek({1:['13:00','17:00'],2:['13:00','17:00'],3:['13:00','17:00'],4:['13:00','17:00'],5:['13:00','16:30'],6:['07:30','10:00']}) },
-    { id:'grp_reguler56', name:'Reguler Kelas 5-6', week: defaultWeek({1:['07:00','12:30'],2:['07:00','12:30'],3:['07:00','12:30'],4:['07:00','12:30'],5:['07:00','10:00'],6:['07:30','10:00']}) },
-    { id:'grp_staf_pagi', name:'Staf / Shift Pagi (umum)', week: defaultWeek({1:['07:00','12:30'],2:['07:00','12:30'],3:['07:00','12:30'],4:['07:00','12:30'],5:['07:00','10:00'],6:['07:30','10:00']}) },
-    { id:'grp_staf_siang', name:'Staf / Shift Siang (umum)', week: defaultWeek({1:['13:00','16:30'],2:['13:00','16:30'],3:['13:00','16:30'],4:['13:00','16:30'],5:['13:00','16:30'],6:['07:30','10:00']}) }
-  ],
-  assignments: {}
-};
-
-// ---------- LOCAL PERSISTENCE ----------
-const LS_KEY = 'rekapAbsensiGuru_v1';
-
-function saveLocalState(){
-  try{
-    const payload = {
-      settings: {
-        workdays: Array.from(settings.workdays),
-        extraHolidays: settings.extraHolidays,
-        toleransi: settings.toleransi,
-        groups: settings.groups,
-        assignments: settings.assignments
-      },
-      payrollData,
-      googleConfig: { clientId: googleConfig.clientId, sheetId: googleConfig.sheetId }
+    let settings = {
+      workdays: new Set([1, 2, 3, 4, 5, 6]),
+      extraHolidays: [],
+      toleransi: 2,
+      groups: [
+        { id: 'grp_intensif13', name: 'Intensif Kelas 1-3', week: defaultWeek({ 1: ['07:00', '12:30'], 2: ['07:00', '12:30'], 3: ['07:00', '12:30'], 4: ['07:00', '12:30'], 5: ['07:00', '10:00'], 6: ['07:30', '10:00'] }) },
+        { id: 'grp_intensif46', name: 'Intensif Kelas 4-6', week: defaultWeek({ 1: ['07:00', '13:30'], 2: ['07:00', '13:30'], 3: ['07:00', '13:30'], 4: ['07:00', '13:30'], 5: ['07:00', '10:00'], 6: ['07:30', '10:00'] }) },
+        { id: 'grp_reguler1', name: 'Reguler Kelas 1', week: defaultWeek({ 1: ['07:00', '11:00'], 2: ['07:00', '11:00'], 3: ['07:00', '11:00'], 4: ['07:00', '11:00'], 5: ['07:00', '10:00'], 6: ['07:30', '10:00'] }) },
+        { id: 'grp_reguler34', name: 'Reguler Kelas 3-4 (Siang)', week: defaultWeek({ 1: ['13:00', '17:00'], 2: ['13:00', '17:00'], 3: ['13:00', '17:00'], 4: ['13:00', '17:00'], 5: ['13:00', '16:30'], 6: ['07:30', '10:00'] }) },
+        { id: 'grp_reguler56', name: 'Reguler Kelas 5-6', week: defaultWeek({ 1: ['07:00', '12:30'], 2: ['07:00', '12:30'], 3: ['07:00', '12:30'], 4: ['07:00', '12:30'], 5: ['07:00', '10:00'], 6: ['07:30', '10:00'] }) },
+        { id: 'grp_staf_pagi', name: 'Staf / Shift Pagi (umum)', week: defaultWeek({ 1: ['07:00', '12:30'], 2: ['07:00', '12:30'], 3: ['07:00', '12:30'], 4: ['07:00', '12:30'], 5: ['07:00', '10:00'], 6: ['07:30', '10:00'] }) },
+        { id: 'grp_staf_siang', name: 'Staf / Shift Siang (umum)', week: defaultWeek({ 1: ['13:00', '16:30'], 2: ['13:00', '16:30'], 3: ['13:00', '16:30'], 4: ['13:00', '16:30'], 5: ['13:00', '16:30'], 6: ['07:30', '10:00'] }) }
+      ],
+      assignments: {}
     };
-    localStorage.setItem(LS_KEY, JSON.stringify(payload));
-  }catch(err){ console.warn('Gagal menyimpan ke penyimpanan lokal:', err); }
-}
 
-function loadLocalState(){
-  try{
-    const raw = localStorage.getItem(LS_KEY);
-    if(!raw) return;
-    const payload = JSON.parse(raw);
-    if(payload.settings){
-      settings.workdays = new Set(payload.settings.workdays || [1,2,3,4,5,6]);
-      settings.extraHolidays = payload.settings.extraHolidays || [];
-      settings.toleransi = (payload.settings.toleransi != null) ? payload.settings.toleransi : 2;
-      if(Array.isArray(payload.settings.groups) && payload.settings.groups.length) settings.groups = payload.settings.groups;
-      settings.assignments = payload.settings.assignments || {};
+    // ---------- LOCAL PERSISTENCE ----------
+    const LS_KEY = 'rekapAbsensiGuru_v1';
+
+    function saveLocalState() {
+      try {
+        const payload = {
+          settings: {
+            workdays: Array.from(settings.workdays),
+            extraHolidays: settings.extraHolidays,
+            toleransi: settings.toleransi,
+            groups: settings.groups,
+            assignments: settings.assignments
+          },
+          payrollData,
+          googleConfig: { clientId: googleConfig.clientId, sheetId: googleConfig.sheetId },
+          filesData: filesData.map(f => ({
+            fileName: f.fileName,
+            periodStart: f.periodStart.toISOString(),
+            periodEnd: f.periodEnd.toISOString(),
+            blocks: f.blocks
+          })),
+          selectedEmployeeId
+        };
+        localStorage.setItem(LS_KEY, JSON.stringify(payload));
+      } catch (err) { console.warn('Gagal menyimpan ke penyimpanan lokal:', err); }
     }
-    if(payload.payrollData) payrollData = payload.payrollData;
-    if(payload.googleConfig) googleConfig = payload.googleConfig;
-  }catch(err){ console.warn('Gagal memuat penyimpanan lokal:', err); }
-}
 
-loadLocalState();
-
-// ---------- FILE HANDLING ----------
-const fileInput = document.getElementById('fileInput');
-const dropzone = document.getElementById('dropzone');
-
-fileInput.addEventListener('change', e => { handleFiles(e.target.files); });
-dropzone.addEventListener('click', () => fileInput.click());
-dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
-dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
-dropzone.addEventListener('drop', e => {
-  e.preventDefault(); dropzone.classList.remove('dragover');
-  handleFiles(e.dataTransfer.files);
-});
-
-function handleFiles(fileList){
-  Array.from(fileList).forEach(file => {
-    const reader = new FileReader();
-    reader.onload = evt => {
-      try{
-        const data = new Uint8Array(evt.target.result);
-        const wb = XLSX.read(data, {type:'array', cellText:true});
-        parseWorkbook(wb, file.name);
-      }catch(err){
-        alert('Gagal membaca file ' + file.name + ': ' + err.message);
-      }
-    };
-    reader.readAsArrayBuffer(file);
-  });
-}
-
-function parseWorkbook(wb, fileName){
-  let sheetName = wb.SheetNames.find(n => /log/i.test(n));
-  if(!sheetName) sheetName = wb.SheetNames.find(n => /absen/i.test(n));
-  if(!sheetName){
-    alert('Sheet "Lap. Log Absen" tidak ditemukan di file ' + fileName + '.');
-    return;
-  }
-  const sheet = wb.Sheets[sheetName];
-  const aoa = XLSX.utils.sheet_to_json(sheet, {header:1, raw:false, defval:null});
-
-  let foundStart = null, foundEnd = null;
-  for(const row of aoa){
-    for(const cell of row){
-      if(typeof cell === 'string'){
-        const m = cell.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/);
-        if(m){ foundStart = m[1]; foundEnd = m[2]; }
-      }
+    function loadLocalState() {
+      try {
+        const raw = localStorage.getItem(LS_KEY);
+        if (!raw) return;
+        const payload = JSON.parse(raw);
+        if (payload.settings) {
+          settings.workdays = new Set(payload.settings.workdays || [1, 2, 3, 4, 5, 6]);
+          settings.extraHolidays = payload.settings.extraHolidays || [];
+          settings.toleransi = (payload.settings.toleransi != null) ? payload.settings.toleransi : 2;
+          if (Array.isArray(payload.settings.groups) && payload.settings.groups.length) settings.groups = payload.settings.groups;
+          settings.assignments = payload.settings.assignments || {};
+        }
+        if (payload.payrollData) payrollData = payload.payrollData;
+        if (payload.googleConfig) googleConfig = payload.googleConfig;
+        if (Array.isArray(payload.filesData)) {
+          filesData = payload.filesData.map(f => ({
+            fileName: f.fileName,
+            periodStart: new Date(f.periodStart),
+            periodEnd: new Date(f.periodEnd),
+            blocks: f.blocks
+          }));
+        }
+        if (payload.selectedEmployeeId) selectedEmployeeId = payload.selectedEmployeeId;
+      } catch (err) { console.warn('Gagal memuat penyimpanan lokal:', err); }
     }
-    if(foundStart) break;
-  }
-  if(!foundStart){
-    alert('Tidak menemukan rentang periode di file ' + fileName + '.');
-    return;
-  }
-  const periodStart = new Date(foundStart + 'T00:00:00');
-  const periodEnd = new Date(foundEnd + 'T00:00:00');
-  const totalDays = Math.round((periodEnd - periodStart) / 86400000) + 1;
 
-  const blocks = [];
-  for(let r=0; r<aoa.length; r++){
-    const row = aoa[r];
-    if(!row) continue;
-    const idIdx = row.findIndex(c => typeof c === 'string' && c.trim() === 'ID:');
-    if(idIdx === -1) continue;
-    const namaIdx = row.findIndex(c => typeof c === 'string' && c.trim() === 'Nama:');
-    const deptIdx = row.findIndex(c => typeof c === 'string' && c.trim() === 'Dept.:');
-    const empId = (row[idIdx+2] != null) ? String(row[idIdx+2]).trim() : ('row'+r);
-    const empName = (namaIdx !== -1 && row[namaIdx+2] != null) ? String(row[namaIdx+2]).trim() : ('Tanpa Nama ' + empId);
-    const empDept = (deptIdx !== -1 && row[deptIdx+2] != null) ? String(row[deptIdx+2]).trim() : '';
+    loadLocalState();
 
-    const dataRow = aoa[r+1] || [];
-    const timesByDate = {};
-    for(let d=1; d<=totalDays; d++){
-      const date = new Date(periodStart); date.setDate(date.getDate() + (d-1));
-      const dateStr = toLocalDateStr(date);
-      const cellVal = dataRow[d-1];
-      if(cellVal == null || String(cellVal).trim() === ''){ timesByDate[dateStr] = []; continue; }
-      const times = String(cellVal).trim().match(/\d{1,2}:\d{2}/g) || [];
-      timesByDate[dateStr] = times;
+    // Restore previously uploaded attendance data (if any) so it survives a browser restart.
+    if (filesData.length > 0) {
+      rebuildEmployees();
+      document.getElementById('emptyState').style.display = 'none';
+      document.getElementById('dataArea').style.display = 'block';
+      document.getElementById('sidebar').style.display = 'block';
+      if (!selectedEmployeeId || !employees[selectedEmployeeId]) selectedEmployeeId = Object.keys(employees)[0];
+      renderAll();
     }
-    blocks.push({id: empId, name: empName, dept: empDept, timesByDate});
-    r++;
-  }
 
-  if(blocks.length === 0){
-    alert('Tidak ada data guru yang terbaca dari file ' + fileName + '.');
-    return;
-  }
+    // ---------- FILE HANDLING ----------
+    const fileInput = document.getElementById('fileInput');
+    const dropzone = document.getElementById('dropzone');
 
-  filesData.push({fileName, periodStart, periodEnd, blocks});
-  rebuildEmployees();
-
-  document.getElementById('emptyState').style.display = 'none';
-  document.getElementById('dataArea').style.display = 'block';
-  document.getElementById('sidebar').style.display = 'block';
-  if(!selectedEmployeeId) selectedEmployeeId = Object.keys(employees)[0];
-
-  renderAll();
-}
-
-function rebuildEmployees(){
-  employees = {};
-  const dateSet = new Set();
-  filesData.slice().sort((a,b)=>a.periodStart-b.periodStart).forEach(file => {
-    file.blocks.forEach(block => {
-      if(!employees[block.id]) employees[block.id] = {id:block.id, name:block.name, dept:block.dept, records:{}};
-      employees[block.id].name = block.name;
-      Object.keys(block.timesByDate).forEach(dateStr => {
-        employees[block.id].records[dateStr] = block.timesByDate[dateStr];
-        dateSet.add(dateStr);
-      });
+    fileInput.addEventListener('change', e => { handleFiles(e.target.files); });
+    dropzone.addEventListener('click', () => fileInput.click());
+    dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+    dropzone.addEventListener('drop', e => {
+      e.preventDefault(); dropzone.classList.remove('dragover');
+      handleFiles(e.dataTransfer.files);
     });
-  });
-  allDates = Array.from(dateSet).sort();
-  Object.keys(employees).forEach(id => {
-    if(!settings.assignments[id]) settings.assignments[id] = settings.groups[0].id;
-  });
-}
 
-function removeFile(fileName){
-  filesData = filesData.filter(f => f.fileName !== fileName);
-  rebuildEmployees();
-  if(Object.keys(employees).length === 0){
-    document.getElementById('emptyState').style.display = 'block';
-    document.getElementById('dataArea').style.display = 'none';
-    document.getElementById('sidebar').style.display = 'none';
-    selectedEmployeeId = null;
-  } else if(!employees[selectedEmployeeId]){
-    selectedEmployeeId = Object.keys(employees)[0];
-  }
-  renderAll();
-}
-
-// ---------- COMPUTATION ----------
-function timeToMinutes(t){ const [h,m] = t.split(':').map(Number); return h*60+m; }
-
-function computeEmployeeReport(emp){
-  const groupId = settings.assignments[emp.id];
-  const group = settings.groups.find(g => g.id === groupId);
-  const rows = [];
-  const counts = {ok:0, late:0, alpha:0, off:0};
-
-  allDates.forEach(dateStr => {
-    const date = new Date(dateStr + 'T00:00:00');
-    const dow = date.getDay();
-    const isExtraHoliday = settings.extraHolidays.includes(dateStr);
-    const isWorkday = settings.workdays.has(dow) && !isExtraHoliday;
-    const times = (emp.records[dateStr] || []).slice().sort((a,b) => timeToMinutes(a) - timeToMinutes(b));
-    const sched = group ? group.week[dow] : null;
-
-    let jamMasuk = '-', jamKeluar = '-', status = '', tagClass = '';
-
-    if(!isWorkday){
-      status = 'Libur'; tagClass = 'tag-off'; counts.off++;
-    } else if(times.length === 0){
-      status = 'Tidak Hadir'; tagClass = 'tag-alpha'; counts.alpha++;
-    } else {
-      jamMasuk = times[0];
-      jamKeluar = times.length > 1 ? times[times.length-1] : '-';
-      let flags = [];
-      let isLate = false;
-      if(sched && sched.masuk){
-        const diff = timeToMinutes(jamMasuk) - timeToMinutes(sched.masuk);
-        if(diff > settings.toleransi){ flags.push('Terlambat ' + diff + ' menit'); isLate = true; }
-      }
-      if(sched && sched.pulang && jamKeluar !== '-'){
-        const diffOut = timeToMinutes(sched.pulang) - timeToMinutes(jamKeluar);
-        if(diffOut > settings.toleransi){ flags.push('Pulang cepat ' + diffOut + ' menit'); isLate = true; }
-      }
-      if(flags.length === 0){
-        status = 'Tepat Waktu'; tagClass = 'tag-ok'; counts.ok++;
-      } else {
-        status = flags.join(' · '); tagClass = 'tag-late'; counts.late++;
-      }
-      if(!sched){ status = 'Hadir (kelompok tanpa jadwal hari ini)'; }
-      if(times.length === 1){ status += ' · hanya 1x scan'; }
+    function handleFiles(fileList) {
+      Array.from(fileList).forEach(file => {
+        const reader = new FileReader();
+        reader.onload = evt => {
+          try {
+            const data = new Uint8Array(evt.target.result);
+            const wb = XLSX.read(data, { type: 'array', cellText: true });
+            parseWorkbook(wb, file.name);
+          } catch (err) {
+            alert('Gagal membaca file ' + file.name + ': ' + err.message);
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      });
     }
 
-    rows.push({dateStr, dowLabel: DOW_LABELS[dow], jamMasuk, jamKeluar, status, tagClass, isWorkday});
-  });
-  return {rows, counts, group};
-}
+    function parseWorkbook(wb, fileName) {
+      let sheetName = wb.SheetNames.find(n => /log/i.test(n));
+      if (!sheetName) sheetName = wb.SheetNames.find(n => /absen/i.test(n));
+      if (!sheetName) {
+        alert('Sheet "Lap. Log Absen" tidak ditemukan di file ' + fileName + '.');
+        return;
+      }
+      const sheet = wb.Sheets[sheetName];
+      const aoa = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: null });
 
-// ---------- RENDER ----------
-function renderAll(){
-  const empCount = Object.keys(employees).length;
-  if(filesData.length === 0){
-    document.getElementById('periodLine').textContent = 'Belum ada data — silakan upload file laporan mesin absen.';
-  } else {
-    const minStart = filesData.reduce((a,f)=> f.periodStart < a ? f.periodStart : a, filesData[0].periodStart);
-    const maxEnd = filesData.reduce((a,f)=> f.periodEnd > a ? f.periodEnd : a, filesData[0].periodEnd);
-    document.getElementById('periodLine').textContent = 'Periode: ' + fmtDate(minStart) + ' – ' + fmtDate(maxEnd) + ' · ' + empCount + ' guru terbaca';
-  }
-  renderFileChips();
-  renderSidebar();
-  renderGroupAssignQuick();
-  renderDetail();
-  applyViewVisibility();
-}
+      let foundStart = null, foundEnd = null;
+      for (const row of aoa) {
+        for (const cell of row) {
+          if (typeof cell === 'string') {
+            const m = cell.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/);
+            if (m) { foundStart = m[1]; foundEnd = m[2]; }
+          }
+        }
+        if (foundStart) break;
+      }
+      if (!foundStart) {
+        alert('Tidak menemukan rentang periode di file ' + fileName + '.');
+        return;
+      }
+      const periodStart = new Date(foundStart + 'T00:00:00');
+      const periodEnd = new Date(foundEnd + 'T00:00:00');
+      const totalDays = Math.round((periodEnd - periodStart) / 86400000) + 1;
 
-function renderFileChips(){
-  const box = document.getElementById('fileChips');
-  box.innerHTML = '';
-  filesData.forEach(f => {
-    const chip = document.createElement('div');
-    chip.className = 'file-chip';
-    chip.innerHTML = `<span>${escapeHtml(f.fileName)} (${fmtDate(f.periodStart)}–${fmtDate(f.periodEnd)})</span>`;
-    const btn = document.createElement('button');
-    btn.textContent = '✕';
-    btn.onclick = () => removeFile(f.fileName);
-    chip.appendChild(btn);
-    box.appendChild(chip);
-  });
-}
+      const blocks = [];
+      for (let r = 0; r < aoa.length; r++) {
+        const row = aoa[r];
+        if (!row) continue;
+        const idIdx = row.findIndex(c => typeof c === 'string' && c.trim() === 'ID:');
+        if (idIdx === -1) continue;
+        const namaIdx = row.findIndex(c => typeof c === 'string' && c.trim() === 'Nama:');
+        const deptIdx = row.findIndex(c => typeof c === 'string' && c.trim() === 'Dept.:');
+        const empId = (row[idIdx + 2] != null) ? String(row[idIdx + 2]).trim() : ('row' + r);
+        const empName = (namaIdx !== -1 && row[namaIdx + 2] != null) ? String(row[namaIdx + 2]).trim() : ('Tanpa Nama ' + empId);
+        const empDept = (deptIdx !== -1 && row[deptIdx + 2] != null) ? String(row[deptIdx + 2]).trim() : '';
 
-function fmtDate(d){ return d.toLocaleDateString('id-ID', {day:'2-digit', month:'short', year:'numeric'}); }
-function fmtDateShort(dateStr){ const d = new Date(dateStr+'T00:00:00'); return d.toLocaleDateString('id-ID', {day:'2-digit', month:'short'}); }
+        const dataRow = aoa[r + 1] || [];
+        const timesByDate = {};
+        for (let d = 1; d <= totalDays; d++) {
+          const date = new Date(periodStart); date.setDate(date.getDate() + (d - 1));
+          const dateStr = toLocalDateStr(date);
+          const cellVal = dataRow[d - 1];
+          if (cellVal == null || String(cellVal).trim() === '') { timesByDate[dateStr] = []; continue; }
+          const times = String(cellVal).trim().match(/\d{1,2}:\d{2}/g) || [];
+          timesByDate[dateStr] = times;
+        }
+        blocks.push({ id: empId, name: empName, dept: empDept, timesByDate });
+        r++;
+      }
 
-function renderSidebar(){
-  const list = document.getElementById('guruList');
-  list.innerHTML = '';
-  Object.values(employees).sort((a,b)=>a.name.localeCompare(b.name)).forEach(emp => {
-    const {counts} = computeEmployeeReport(emp);
-    const hariEfektif = counts.ok + counts.late + counts.alpha;
-    const totalHadir = counts.ok + counts.late;
-    const div = document.createElement('div');
-    div.className = 'guru-item' + (emp.id === selectedEmployeeId ? ' active' : '');
-    div.innerHTML = `
+      if (blocks.length === 0) {
+        alert('Tidak ada data guru yang terbaca dari file ' + fileName + '.');
+        return;
+      }
+
+      filesData.push({ fileName, periodStart, periodEnd, blocks });
+      rebuildEmployees();
+
+      document.getElementById('emptyState').style.display = 'none';
+      document.getElementById('dataArea').style.display = 'block';
+      document.getElementById('sidebar').style.display = 'block';
+      if (!selectedEmployeeId) selectedEmployeeId = Object.keys(employees)[0];
+
+      saveLocalState();
+      renderAll();
+    }
+
+    function rebuildEmployees() {
+      employees = {};
+      const dateSet = new Set();
+      filesData.slice().sort((a, b) => a.periodStart - b.periodStart).forEach(file => {
+        file.blocks.forEach(block => {
+          if (!employees[block.id]) employees[block.id] = { id: block.id, name: block.name, dept: block.dept, records: {} };
+          employees[block.id].name = block.name;
+          Object.keys(block.timesByDate).forEach(dateStr => {
+            employees[block.id].records[dateStr] = block.timesByDate[dateStr];
+            dateSet.add(dateStr);
+          });
+        });
+      });
+      allDates = Array.from(dateSet).sort();
+      Object.keys(employees).forEach(id => {
+        if (!settings.assignments[id]) settings.assignments[id] = settings.groups[0].id;
+      });
+    }
+
+    function removeFile(fileName) {
+      filesData = filesData.filter(f => f.fileName !== fileName);
+      rebuildEmployees();
+      if (Object.keys(employees).length === 0) {
+        document.getElementById('emptyState').style.display = 'block';
+        document.getElementById('dataArea').style.display = 'none';
+        document.getElementById('sidebar').style.display = 'none';
+        selectedEmployeeId = null;
+      } else if (!employees[selectedEmployeeId]) {
+        selectedEmployeeId = Object.keys(employees)[0];
+      }
+      saveLocalState();
+      renderAll();
+    }
+
+    // ---------- COMPUTATION ----------
+    function timeToMinutes(t) { const [h, m] = t.split(':').map(Number); return h * 60 + m; }
+
+    function computeEmployeeReport(emp) {
+      const groupId = settings.assignments[emp.id];
+      const group = settings.groups.find(g => g.id === groupId);
+      const rows = [];
+      const counts = { ok: 0, late: 0, alpha: 0, off: 0 };
+
+      allDates.forEach(dateStr => {
+        const date = new Date(dateStr + 'T00:00:00');
+        const dow = date.getDay();
+        const isExtraHoliday = settings.extraHolidays.includes(dateStr);
+        const isWorkday = settings.workdays.has(dow) && !isExtraHoliday;
+        const times = (emp.records[dateStr] || []).slice().sort((a, b) => timeToMinutes(a) - timeToMinutes(b));
+        const sched = group ? group.week[dow] : null;
+
+        let jamMasuk = '-', jamKeluar = '-', status = '', tagClass = '';
+
+        if (!isWorkday) {
+          status = 'Libur'; tagClass = 'tag-off'; counts.off++;
+        } else if (times.length === 0) {
+          status = 'Tidak Hadir'; tagClass = 'tag-alpha'; counts.alpha++;
+        } else {
+          jamMasuk = times[0];
+          jamKeluar = times.length > 1 ? times[times.length - 1] : '-';
+          let flags = [];
+          let isLate = false;
+          if (sched && sched.masuk) {
+            const diff = timeToMinutes(jamMasuk) - timeToMinutes(sched.masuk);
+            if (diff > settings.toleransi) { flags.push('Terlambat ' + diff + ' menit'); isLate = true; }
+          }
+          if (sched && sched.pulang && jamKeluar !== '-') {
+            const diffOut = timeToMinutes(sched.pulang) - timeToMinutes(jamKeluar);
+            if (diffOut > settings.toleransi) { flags.push('Pulang cepat ' + diffOut + ' menit'); isLate = true; }
+          }
+          if (flags.length === 0) {
+            status = 'Tepat Waktu'; tagClass = 'tag-ok'; counts.ok++;
+          } else {
+            status = flags.join(' · '); tagClass = 'tag-late'; counts.late++;
+          }
+          if (!sched) { status = 'Hadir (kelompok tanpa jadwal hari ini)'; }
+          if (times.length === 1) { status += ' · hanya 1x scan'; }
+        }
+
+        rows.push({ dateStr, dowLabel: DOW_LABELS[dow], jamMasuk, jamKeluar, status, tagClass, isWorkday });
+      });
+      return { rows, counts, group };
+    }
+
+    // ---------- RENDER ----------
+    function renderAll() {
+      const empCount = Object.keys(employees).length;
+      if (filesData.length === 0) {
+        document.getElementById('periodLine').textContent = 'Belum ada data — silakan upload file laporan mesin absen.';
+      } else {
+        const minStart = filesData.reduce((a, f) => f.periodStart < a ? f.periodStart : a, filesData[0].periodStart);
+        const maxEnd = filesData.reduce((a, f) => f.periodEnd > a ? f.periodEnd : a, filesData[0].periodEnd);
+        document.getElementById('periodLine').textContent = 'Periode: ' + fmtDate(minStart) + ' – ' + fmtDate(maxEnd) + ' · ' + empCount + ' guru terbaca';
+      }
+      renderFileChips();
+      renderSidebar();
+      renderGroupAssignQuick();
+      renderDetail();
+      applyViewVisibility();
+    }
+
+    function renderFileChips() {
+      const box = document.getElementById('fileChips');
+      box.innerHTML = '';
+      filesData.forEach(f => {
+        const chip = document.createElement('div');
+        chip.className = 'file-chip';
+        chip.innerHTML = `<span>${escapeHtml(f.fileName)} (${fmtDate(f.periodStart)}–${fmtDate(f.periodEnd)})</span>`;
+        const btn = document.createElement('button');
+        btn.textContent = '✕';
+        btn.onclick = () => removeFile(f.fileName);
+        chip.appendChild(btn);
+        box.appendChild(chip);
+      });
+    }
+
+    function fmtDate(d) { return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }); }
+    function fmtDateShort(dateStr) { const d = new Date(dateStr + 'T00:00:00'); return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }); }
+
+    function renderSidebar() {
+      const list = document.getElementById('guruList');
+      list.innerHTML = '';
+      Object.values(employees).sort((a, b) => a.name.localeCompare(b.name)).forEach(emp => {
+        const { counts } = computeEmployeeReport(emp);
+        const hariEfektif = counts.ok + counts.late + counts.alpha;
+        const totalHadir = counts.ok + counts.late;
+        const div = document.createElement('div');
+        div.className = 'guru-item' + (emp.id === selectedEmployeeId ? ' active' : '');
+        div.innerHTML = `
       <span class="guru-name">${escapeHtml(emp.name)}</span>
       <span class="badges">
         <span class="b-ratio">${totalHadir}/${hariEfektif}</span>
         ${counts.late ? `<span class="b-late">T${counts.late}</span>` : ''}
         ${counts.alpha ? `<span class="b-alpha">A${counts.alpha}</span>` : ''}
       </span>`;
-    div.onclick = () => { selectedEmployeeId = emp.id; renderAll(); };
-    list.appendChild(div);
-  });
-}
+        div.onclick = () => { selectedEmployeeId = emp.id; saveLocalState(); renderAll(); };
+        list.appendChild(div);
+      });
+    }
 
-function renderGroupAssignQuick(){
-  const sel = document.getElementById('groupAssignQuick');
-  sel.innerHTML = '';
-  settings.groups.forEach(g => {
-    const opt = document.createElement('option');
-    opt.value = g.id; opt.textContent = g.name;
-    sel.appendChild(opt);
-  });
-  if(!selectedEmployeeId) return;
-  sel.value = settings.assignments[selectedEmployeeId] || settings.groups[0].id;
-  sel.onchange = () => { settings.assignments[selectedEmployeeId] = sel.value; renderAll(); };
-}
+    function renderGroupAssignQuick() {
+      const sel = document.getElementById('groupAssignQuick');
+      sel.innerHTML = '';
+      settings.groups.forEach(g => {
+        const opt = document.createElement('option');
+        opt.value = g.id; opt.textContent = g.name;
+        sel.appendChild(opt);
+      });
+      if (!selectedEmployeeId) return;
+      sel.value = settings.assignments[selectedEmployeeId] || settings.groups[0].id;
+      sel.onchange = () => { settings.assignments[selectedEmployeeId] = sel.value; renderAll(); };
+    }
 
-function renderDetail(){
-  const emp = employees[selectedEmployeeId];
-  const cards = document.getElementById('statCards');
-  const tbody = document.getElementById('detailTbody');
-  if(!emp){ cards.innerHTML=''; tbody.innerHTML=''; return; }
-  const {rows, counts} = computeEmployeeReport(emp);
+    function renderDetail() {
+      const emp = employees[selectedEmployeeId];
+      const cards = document.getElementById('statCards');
+      const tbody = document.getElementById('detailTbody');
+      if (!emp) { cards.innerHTML = ''; tbody.innerHTML = ''; return; }
+      const { rows, counts } = computeEmployeeReport(emp);
 
-  document.getElementById('detailTitle').textContent = 'Rekap Harian — ' + emp.name;
-  const hariEfektif = counts.ok + counts.late + counts.alpha;
-  const totalHadir = counts.ok + counts.late;
-  cards.innerHTML = `
+      document.getElementById('detailTitle').textContent = 'Rekap Harian — ' + emp.name;
+      const hariEfektif = counts.ok + counts.late + counts.alpha;
+      const totalHadir = counts.ok + counts.late;
+      cards.innerHTML = `
     <div class="stat-card total"><div class="num">${totalHadir}/${hariEfektif}</div><div class="label">Total Kehadiran (Hari Efektif)</div></div>
     <div class="stat-card ok"><div class="num">${counts.ok}</div><div class="label">Hadir / Tepat Waktu</div></div>
     <div class="stat-card late"><div class="num">${counts.late}</div><div class="label">Terlambat / Pulang Cepat</div></div>
@@ -669,304 +1371,304 @@ function renderDetail(){
     <div class="stat-card off"><div class="num">${counts.off}</div><div class="label">Libur</div></div>
   `;
 
-  tbody.innerHTML = '';
-  rows.forEach(r => {
-    const tr = document.createElement('tr');
-    if(!r.isWorkday) tr.className = 'row-weekend';
-    tr.innerHTML = `<td>${fmtDateShort(r.dateStr)}</td><td>${r.dowLabel}</td><td>${r.jamMasuk}</td><td>${r.jamKeluar}</td><td><span class="tag ${r.tagClass}">${r.status}</span></td>`;
-    tbody.appendChild(tr);
-  });
-}
-
-function escapeHtml(str){
-  return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-}
-
-// ---------- CSV EXPORT ----------
-document.getElementById('btnExportCsv').addEventListener('click', () => {
-  const emp = employees[selectedEmployeeId];
-  if(!emp) return;
-  const {rows, counts} = computeEmployeeReport(emp);
-  const hariEfektif = counts.ok + counts.late + counts.alpha;
-  const totalHadir = counts.ok + counts.late;
-  let csv = 'Nama,' + emp.name + '\n';
-  csv += 'Total Kehadiran,' + totalHadir + '/' + hariEfektif + '\n\n';
-  csv += 'Tanggal,Hari,Jam Masuk,Jam Keluar,Keterangan\n';
-  rows.forEach(r => { csv += `${fmtDateShort(r.dateStr)},${r.dowLabel},${r.jamMasuk},${r.jamKeluar},"${r.status}"\n`; });
-  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = 'rekap_absensi_' + emp.name.replace(/\s+/g,'_') + '.csv'; a.click();
-  URL.revokeObjectURL(url);
-});
-
-// ---------- PDF EXPORT ----------
-document.getElementById('btnExportPdf').addEventListener('click', () => {
-  const emp = employees[selectedEmployeeId];
-  if(!emp) return;
-  const {rows, counts, group} = computeEmployeeReport(emp);
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
-
-  doc.setFontSize(14);
-  doc.text('Rekap Absensi Guru', 14, 16);
-  doc.setFontSize(11);
-  doc.text('Nama: ' + emp.name, 14, 24);
-  doc.text('Kelompok Jadwal: ' + (group ? group.name : '-'), 14, 30);
-  const minStart = filesData.reduce((a,f)=> f.periodStart < a ? f.periodStart : a, filesData[0].periodStart);
-  const maxEnd = filesData.reduce((a,f)=> f.periodEnd > a ? f.periodEnd : a, filesData[0].periodEnd);
-  doc.text('Periode: ' + fmtDate(minStart) + ' - ' + fmtDate(maxEnd), 14, 36);
-  const hariEfektif = counts.ok + counts.late + counts.alpha;
-  const totalHadir = counts.ok + counts.late;
-  doc.setFontSize(12);
-  doc.text('Total Kehadiran: ' + totalHadir + ' / ' + hariEfektif + ' hari efektif', 14, 44);
-  doc.setFontSize(10);
-  doc.text('Tepat Waktu: ' + counts.ok + '   Terlambat/Pulang Cepat: ' + counts.late + '   Tidak Hadir: ' + counts.alpha + '   Libur: ' + counts.off, 14, 50);
-
-  doc.autoTable({
-    startY: 56,
-    head: [['Tanggal','Hari','Jam Masuk','Jam Keluar','Keterangan']],
-    body: rows.map(r => [fmtDateShort(r.dateStr), r.dowLabel, r.jamMasuk, r.jamKeluar, r.status]),
-    styles: {fontSize:8.5, cellPadding:3},
-    headStyles: {fillColor:[20,99,86]},
-    didParseCell: function(data){
-      if(data.section === 'body' && data.column.index === 4){
-        const txt = data.cell.raw;
-        if(/Terlambat|Pulang cepat/.test(txt)) data.cell.styles.textColor = [178,58,46];
-        else if(/Tidak Hadir/.test(txt)) data.cell.styles.textColor = [194,118,10];
-        else if(/Libur/.test(txt)) data.cell.styles.textColor = [124,139,135];
-      }
-    }
-  });
-
-  doc.save('rekap_absensi_' + emp.name.replace(/\s+/g,'_') + '.pdf');
-});
-
-// ---------- SETTINGS MODAL ----------
-const settingsOverlay = document.getElementById('settingsOverlay');
-document.getElementById('btnSettings').onclick = () => { renderSettingsModal(); settingsOverlay.classList.add('show'); };
-document.getElementById('btnCloseSettings').onclick = () => settingsOverlay.classList.remove('show');
-document.getElementById('btnCloseSettings2').onclick = () => settingsOverlay.classList.remove('show');
-document.getElementById('btnApplySettings').onclick = () => {
-  googleConfig.clientId = document.getElementById('googleClientId').value.trim();
-  googleConfig.sheetId = document.getElementById('googleSheetId').value.trim();
-  saveLocalState();
-  settingsOverlay.classList.remove('show');
-  renderAll();
-};
-
-function renderSettingsModal(){
-  const dowGrid = document.getElementById('dowGrid');
-  dowGrid.innerHTML = '';
-  [1,2,3,4,5,6,0].forEach(dow => {
-    const chip = document.createElement('div');
-    chip.className = 'dow-chip' + (settings.workdays.has(dow) ? ' active' : '');
-    chip.textContent = DOW_LABELS[dow];
-    chip.onclick = () => {
-      if(settings.workdays.has(dow)) settings.workdays.delete(dow); else settings.workdays.add(dow);
-      chip.classList.toggle('active');
-    };
-    dowGrid.appendChild(chip);
-  });
-
-  renderHolidayList();
-  document.getElementById('btnAddHoliday').onclick = () => {
-    const inp = document.getElementById('newHolidayDate');
-    if(inp.value && !settings.extraHolidays.includes(inp.value)){
-      settings.extraHolidays.push(inp.value); settings.extraHolidays.sort();
-      renderHolidayList(); inp.value = '';
-    }
-  };
-
-  document.getElementById('toleransiInput').value = settings.toleransi;
-  document.getElementById('toleransiInput').onchange = e => { settings.toleransi = parseInt(e.target.value) || 0; };
-
-  renderGroupList();
-  document.getElementById('btnAddGroup').onclick = () => {
-    const id = 'grp_' + Date.now();
-    settings.groups.push({id, name:'Kelompok Baru', week: defaultWeek({1:['07:00','12:30'],2:['07:00','12:30'],3:['07:00','12:30'],4:['07:00','12:30'],5:['07:00','10:00'],6:['07:30','10:00']})});
-    renderGroupList(); renderAssignList();
-  };
-
-  document.getElementById('googleClientId').value = googleConfig.clientId || '';
-  document.getElementById('googleSheetId').value = googleConfig.sheetId || '';
-  updateSyncStatus();
-
-  renderAssignList();
-}
-
-function renderHolidayList(){
-  const box = document.getElementById('holidayList');
-  box.innerHTML = '';
-  settings.extraHolidays.forEach(dateStr => {
-    const row = document.createElement('div');
-    row.className = 'holiday-row';
-    const d = new Date(dateStr + 'T00:00:00');
-    row.innerHTML = `<span style="flex:1;">${fmtDate(d)}</span>`;
-    const btn = document.createElement('button');
-    btn.className = 'icon-btn'; btn.textContent = '✕';
-    btn.onclick = () => { settings.extraHolidays = settings.extraHolidays.filter(x => x !== dateStr); renderHolidayList(); };
-    row.appendChild(btn);
-    box.appendChild(row);
-  });
-}
-
-function renderGroupList(){
-  const box = document.getElementById('groupList');
-  box.innerHTML = '';
-  settings.groups.forEach(group => {
-    const card = document.createElement('div');
-    card.className = 'group-card';
-
-    const head = document.createElement('div');
-    head.className = 'group-card-head';
-    const nameInp = document.createElement('input');
-    nameInp.type = 'text'; nameInp.value = group.name;
-    nameInp.onchange = () => { group.name = nameInp.value; renderGroupAssignQuick(); renderAssignList(); };
-    head.appendChild(nameInp);
-    const del = document.createElement('button');
-    del.className = 'icon-btn'; del.textContent = '✕';
-    del.onclick = () => {
-      if(settings.groups.length <= 1){ alert('Minimal harus ada 1 kelompok.'); return; }
-      settings.groups = settings.groups.filter(g => g.id !== group.id);
-      Object.keys(settings.assignments).forEach(empId => {
-        if(settings.assignments[empId] === group.id) settings.assignments[empId] = settings.groups[0].id;
+      tbody.innerHTML = '';
+      rows.forEach(r => {
+        const tr = document.createElement('tr');
+        if (!r.isWorkday) tr.className = 'row-weekend';
+        tr.innerHTML = `<td>${fmtDateShort(r.dateStr)}</td><td>${r.dowLabel}</td><td>${r.jamMasuk}</td><td>${r.jamKeluar}</td><td><span class="tag ${r.tagClass}">${r.status}</span></td>`;
+        tbody.appendChild(tr);
       });
-      renderGroupList(); renderAssignList();
-    };
-    head.appendChild(del);
-    card.appendChild(head);
+    }
 
-    const grid = document.createElement('div');
-    grid.className = 'week-grid';
-    DOW_ORDER.forEach(dow => {
-      const cell = document.createElement('div');
-      cell.className = 'week-cell';
-      const sched = group.week[dow] || {masuk:'', pulang:''};
-      cell.innerHTML = `
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    // ---------- CSV EXPORT ----------
+    document.getElementById('btnExportCsv').addEventListener('click', () => {
+      const emp = employees[selectedEmployeeId];
+      if (!emp) return;
+      const { rows, counts } = computeEmployeeReport(emp);
+      const hariEfektif = counts.ok + counts.late + counts.alpha;
+      const totalHadir = counts.ok + counts.late;
+      let csv = 'Nama,' + emp.name + '\n';
+      csv += 'Total Kehadiran,' + totalHadir + '/' + hariEfektif + '\n\n';
+      csv += 'Tanggal,Hari,Jam Masuk,Jam Keluar,Keterangan\n';
+      rows.forEach(r => { csv += `${fmtDateShort(r.dateStr)},${r.dowLabel},${r.jamMasuk},${r.jamKeluar},"${r.status}"\n`; });
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'rekap_absensi_' + emp.name.replace(/\s+/g, '_') + '.csv'; a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    // ---------- PDF EXPORT ----------
+    document.getElementById('btnExportPdf').addEventListener('click', () => {
+      const emp = employees[selectedEmployeeId];
+      if (!emp) return;
+      const { rows, counts, group } = computeEmployeeReport(emp);
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+
+      doc.setFontSize(14);
+      doc.text('Rekap Absensi Guru', 14, 16);
+      doc.setFontSize(11);
+      doc.text('Nama: ' + emp.name, 14, 24);
+      doc.text('Kelompok Jadwal: ' + (group ? group.name : '-'), 14, 30);
+      const minStart = filesData.reduce((a, f) => f.periodStart < a ? f.periodStart : a, filesData[0].periodStart);
+      const maxEnd = filesData.reduce((a, f) => f.periodEnd > a ? f.periodEnd : a, filesData[0].periodEnd);
+      doc.text('Periode: ' + fmtDate(minStart) + ' - ' + fmtDate(maxEnd), 14, 36);
+      const hariEfektif = counts.ok + counts.late + counts.alpha;
+      const totalHadir = counts.ok + counts.late;
+      doc.setFontSize(12);
+      doc.text('Total Kehadiran: ' + totalHadir + ' / ' + hariEfektif + ' hari efektif', 14, 44);
+      doc.setFontSize(10);
+      doc.text('Tepat Waktu: ' + counts.ok + '   Terlambat/Pulang Cepat: ' + counts.late + '   Tidak Hadir: ' + counts.alpha + '   Libur: ' + counts.off, 14, 50);
+
+      doc.autoTable({
+        startY: 56,
+        head: [['Tanggal', 'Hari', 'Jam Masuk', 'Jam Keluar', 'Keterangan']],
+        body: rows.map(r => [fmtDateShort(r.dateStr), r.dowLabel, r.jamMasuk, r.jamKeluar, r.status]),
+        styles: { fontSize: 8.5, cellPadding: 3 },
+        headStyles: { fillColor: [20, 99, 86] },
+        didParseCell: function (data) {
+          if (data.section === 'body' && data.column.index === 4) {
+            const txt = data.cell.raw;
+            if (/Terlambat|Pulang cepat/.test(txt)) data.cell.styles.textColor = [178, 58, 46];
+            else if (/Tidak Hadir/.test(txt)) data.cell.styles.textColor = [194, 118, 10];
+            else if (/Libur/.test(txt)) data.cell.styles.textColor = [124, 139, 135];
+          }
+        }
+      });
+
+      doc.save('rekap_absensi_' + emp.name.replace(/\s+/g, '_') + '.pdf');
+    });
+
+    // ---------- SETTINGS MODAL ----------
+    const settingsOverlay = document.getElementById('settingsOverlay');
+    document.getElementById('btnSettings').onclick = () => { renderSettingsModal(); settingsOverlay.classList.add('show'); };
+    document.getElementById('btnCloseSettings').onclick = () => settingsOverlay.classList.remove('show');
+    document.getElementById('btnCloseSettings2').onclick = () => settingsOverlay.classList.remove('show');
+    document.getElementById('btnApplySettings').onclick = () => {
+      googleConfig.clientId = document.getElementById('googleClientId').value.trim();
+      googleConfig.sheetId = document.getElementById('googleSheetId').value.trim();
+      saveLocalState();
+      settingsOverlay.classList.remove('show');
+      renderAll();
+    };
+
+    function renderSettingsModal() {
+      const dowGrid = document.getElementById('dowGrid');
+      dowGrid.innerHTML = '';
+      [1, 2, 3, 4, 5, 6, 0].forEach(dow => {
+        const chip = document.createElement('div');
+        chip.className = 'dow-chip' + (settings.workdays.has(dow) ? ' active' : '');
+        chip.textContent = DOW_LABELS[dow];
+        chip.onclick = () => {
+          if (settings.workdays.has(dow)) settings.workdays.delete(dow); else settings.workdays.add(dow);
+          chip.classList.toggle('active');
+        };
+        dowGrid.appendChild(chip);
+      });
+
+      renderHolidayList();
+      document.getElementById('btnAddHoliday').onclick = () => {
+        const inp = document.getElementById('newHolidayDate');
+        if (inp.value && !settings.extraHolidays.includes(inp.value)) {
+          settings.extraHolidays.push(inp.value); settings.extraHolidays.sort();
+          renderHolidayList(); inp.value = '';
+        }
+      };
+
+      document.getElementById('toleransiInput').value = settings.toleransi;
+      document.getElementById('toleransiInput').onchange = e => { settings.toleransi = parseInt(e.target.value) || 0; };
+
+      renderGroupList();
+      document.getElementById('btnAddGroup').onclick = () => {
+        const id = 'grp_' + Date.now();
+        settings.groups.push({ id, name: 'Kelompok Baru', week: defaultWeek({ 1: ['07:00', '12:30'], 2: ['07:00', '12:30'], 3: ['07:00', '12:30'], 4: ['07:00', '12:30'], 5: ['07:00', '10:00'], 6: ['07:30', '10:00'] }) });
+        renderGroupList(); renderAssignList();
+      };
+
+      document.getElementById('googleClientId').value = googleConfig.clientId || '';
+      document.getElementById('googleSheetId').value = googleConfig.sheetId || '';
+      updateSyncStatus();
+
+      renderAssignList();
+    }
+
+    function renderHolidayList() {
+      const box = document.getElementById('holidayList');
+      box.innerHTML = '';
+      settings.extraHolidays.forEach(dateStr => {
+        const row = document.createElement('div');
+        row.className = 'holiday-row';
+        const d = new Date(dateStr + 'T00:00:00');
+        row.innerHTML = `<span style="flex:1;">${fmtDate(d)}</span>`;
+        const btn = document.createElement('button');
+        btn.className = 'icon-btn'; btn.textContent = '✕';
+        btn.onclick = () => { settings.extraHolidays = settings.extraHolidays.filter(x => x !== dateStr); renderHolidayList(); };
+        row.appendChild(btn);
+        box.appendChild(row);
+      });
+    }
+
+    function renderGroupList() {
+      const box = document.getElementById('groupList');
+      box.innerHTML = '';
+      settings.groups.forEach(group => {
+        const card = document.createElement('div');
+        card.className = 'group-card';
+
+        const head = document.createElement('div');
+        head.className = 'group-card-head';
+        const nameInp = document.createElement('input');
+        nameInp.type = 'text'; nameInp.value = group.name;
+        nameInp.onchange = () => { group.name = nameInp.value; renderGroupAssignQuick(); renderAssignList(); };
+        head.appendChild(nameInp);
+        const del = document.createElement('button');
+        del.className = 'icon-btn'; del.textContent = '✕';
+        del.onclick = () => {
+          if (settings.groups.length <= 1) { alert('Minimal harus ada 1 kelompok.'); return; }
+          settings.groups = settings.groups.filter(g => g.id !== group.id);
+          Object.keys(settings.assignments).forEach(empId => {
+            if (settings.assignments[empId] === group.id) settings.assignments[empId] = settings.groups[0].id;
+          });
+          renderGroupList(); renderAssignList();
+        };
+        head.appendChild(del);
+        card.appendChild(head);
+
+        const grid = document.createElement('div');
+        grid.className = 'week-grid';
+        DOW_ORDER.forEach(dow => {
+          const cell = document.createElement('div');
+          cell.className = 'week-cell';
+          const sched = group.week[dow] || { masuk: '', pulang: '' };
+          cell.innerHTML = `
         <div class="dname">${DOW_LABELS[dow]}</div>
-        <input type="time" value="${sched.masuk||''}" title="Jam masuk">
-        <input type="time" value="${sched.pulang||''}" title="Jam pulang">
+        <input type="time" value="${sched.masuk || ''}" title="Jam masuk">
+        <input type="time" value="${sched.pulang || ''}" title="Jam pulang">
         <div class="lbl">masuk / pulang</div>
       `;
-      const [masukInp, pulangInp] = cell.querySelectorAll('input');
-      const ensure = () => { if(!group.week[dow]) group.week[dow] = {masuk:'', pulang:''}; };
-      masukInp.onchange = () => { ensure(); group.week[dow].masuk = masukInp.value; };
-      pulangInp.onchange = () => { ensure(); group.week[dow].pulang = pulangInp.value; };
-      grid.appendChild(cell);
+          const [masukInp, pulangInp] = cell.querySelectorAll('input');
+          const ensure = () => { if (!group.week[dow]) group.week[dow] = { masuk: '', pulang: '' }; };
+          masukInp.onchange = () => { ensure(); group.week[dow].masuk = masukInp.value; };
+          pulangInp.onchange = () => { ensure(); group.week[dow].pulang = pulangInp.value; };
+          grid.appendChild(cell);
+        });
+        card.appendChild(grid);
+        box.appendChild(card);
+      });
+    }
+
+    function renderAssignList() {
+      const box = document.getElementById('assignList');
+      box.innerHTML = '';
+      Object.values(employees).sort((a, b) => a.name.localeCompare(b.name)).forEach(emp => {
+        const row = document.createElement('div');
+        row.className = 'assign-row';
+        const sel = document.createElement('select');
+        settings.groups.forEach(g => {
+          const opt = document.createElement('option');
+          opt.value = g.id; opt.textContent = g.name;
+          if (settings.assignments[emp.id] === g.id) opt.selected = true;
+          sel.appendChild(opt);
+        });
+        sel.onchange = () => { settings.assignments[emp.id] = sel.value; };
+        row.innerHTML = `<span class="guru-label">${escapeHtml(emp.name)}</span>`;
+        row.appendChild(sel);
+        box.appendChild(row);
+      });
+    }
+
+    // ---------- VIEW TABS (Rekap Harian / Gaji) ----------
+    document.getElementById('viewTabs').addEventListener('click', e => {
+      const tab = e.target.closest('.view-tab');
+      if (!tab) return;
+      currentView = tab.dataset.view;
+      document.querySelectorAll('#viewTabs .view-tab').forEach(t => t.classList.toggle('active', t === tab));
+      applyViewVisibility();
     });
-    card.appendChild(grid);
-    box.appendChild(card);
-  });
-}
 
-function renderAssignList(){
-  const box = document.getElementById('assignList');
-  box.innerHTML = '';
-  Object.values(employees).sort((a,b)=>a.name.localeCompare(b.name)).forEach(emp => {
-    const row = document.createElement('div');
-    row.className = 'assign-row';
-    const sel = document.createElement('select');
-    settings.groups.forEach(g => {
-      const opt = document.createElement('option');
-      opt.value = g.id; opt.textContent = g.name;
-      if(settings.assignments[emp.id] === g.id) opt.selected = true;
-      sel.appendChild(opt);
-    });
-    sel.onchange = () => { settings.assignments[emp.id] = sel.value; };
-    row.innerHTML = `<span class="guru-label">${escapeHtml(emp.name)}</span>`;
-    row.appendChild(sel);
-    box.appendChild(row);
-  });
-}
+    function applyViewVisibility() {
+      const isGaji = currentView === 'gaji';
+      document.getElementById('rekapView').style.display = isGaji ? 'none' : 'block';
+      document.getElementById('gajiView').style.display = isGaji ? 'block' : 'none';
+      document.getElementById('rekapActions').style.display = isGaji ? 'none' : 'flex';
+      document.getElementById('gajiActions').style.display = isGaji ? 'flex' : 'none';
+      if (isGaji) renderGajiView();
+    }
 
-// ---------- VIEW TABS (Rekap Harian / Gaji) ----------
-document.getElementById('viewTabs').addEventListener('click', e => {
-  const tab = e.target.closest('.view-tab');
-  if(!tab) return;
-  currentView = tab.dataset.view;
-  document.querySelectorAll('#viewTabs .view-tab').forEach(t => t.classList.toggle('active', t === tab));
-  applyViewVisibility();
-});
+    // ---------- GAJI (PAYROLL) ----------
+    function fmtMonthLabel(yyyyMM) {
+      const [y, m] = yyyyMM.split('-').map(Number);
+      return new Date(y, m - 1, 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+    }
 
-function applyViewVisibility(){
-  const isGaji = currentView === 'gaji';
-  document.getElementById('rekapView').style.display = isGaji ? 'none' : 'block';
-  document.getElementById('gajiView').style.display = isGaji ? 'block' : 'none';
-  document.getElementById('rekapActions').style.display = isGaji ? 'none' : 'flex';
-  document.getElementById('gajiActions').style.display = isGaji ? 'flex' : 'none';
-  if(isGaji) renderGajiView();
-}
+    function formatRupiah(n) {
+      n = Number(n) || 0;
+      return 'Rp' + n.toLocaleString('id-ID');
+    }
 
-// ---------- GAJI (PAYROLL) ----------
-function fmtMonthLabel(yyyyMM){
-  const [y,m] = yyyyMM.split('-').map(Number);
-  return new Date(y, m-1, 1).toLocaleDateString('id-ID', {month:'long', year:'numeric'});
-}
+    function computeMonthlyHadir(emp, yyyyMM) {
+      const { rows } = computeEmployeeReport(emp);
+      return rows.filter(r => r.dateStr.startsWith(yyyyMM) && (r.tagClass === 'tag-ok' || r.tagClass === 'tag-late')).length;
+    }
 
-function formatRupiah(n){
-  n = Number(n) || 0;
-  return 'Rp' + n.toLocaleString('id-ID');
-}
+    // Returns (and lazily creates) this month's payroll entry, carrying forward
+    // honorPokok, biayaTransport, and honorLainnya from the latest earlier month.
+    function getPayrollEntry(empId, yyyyMM) {
+      if (!payrollData[empId]) payrollData[empId] = {};
+      if (payrollData[empId][yyyyMM]) return payrollData[empId][yyyyMM];
+      const earlierMonths = Object.keys(payrollData[empId]).filter(m => m < yyyyMM).sort();
+      let carry = { honorPokok: 0, biayaTransport: 0, honorLainnya: [] };
+      if (earlierMonths.length) {
+        const last = payrollData[empId][earlierMonths[earlierMonths.length - 1]];
+        carry = {
+          honorPokok: last.honorPokok || 0,
+          biayaTransport: last.biayaTransport || 0,
+          honorLainnya: (last.honorLainnya || []).map(x => ({ id: 'hl_' + Date.now() + Math.random().toString(36).slice(2, 7), label: x.label, amount: x.amount }))
+        };
+      }
+      const entry = { honorPokok: carry.honorPokok, biayaTransport: carry.biayaTransport, hariTidakTercatat: 0, honorLainnya: carry.honorLainnya };
+      payrollData[empId][yyyyMM] = entry;
+      saveLocalState();
+      return entry;
+    }
 
-function computeMonthlyHadir(emp, yyyyMM){
-  const {rows} = computeEmployeeReport(emp);
-  return rows.filter(r => r.dateStr.startsWith(yyyyMM) && (r.tagClass === 'tag-ok' || r.tagClass === 'tag-late')).length;
-}
+    function populateGajiMonthSelect() {
+      const sel = document.getElementById('gajiMonthSelect');
+      const months = Array.from(new Set(allDates.map(d => d.slice(0, 7)))).sort();
+      if (months.length === 0) {
+        const now = new Date();
+        months.push(now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0'));
+      }
+      sel.innerHTML = '';
+      months.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m; opt.textContent = fmtMonthLabel(m);
+        sel.appendChild(opt);
+      });
+      if (!selectedPayrollMonth || !months.includes(selectedPayrollMonth)) selectedPayrollMonth = months[months.length - 1];
+      sel.value = selectedPayrollMonth;
+      sel.onchange = () => { selectedPayrollMonth = sel.value; renderGajiView(); };
+    }
 
-// Returns (and lazily creates) this month's payroll entry, carrying forward
-// honorPokok, biayaTransport, and honorLainnya from the latest earlier month.
-function getPayrollEntry(empId, yyyyMM){
-  if(!payrollData[empId]) payrollData[empId] = {};
-  if(payrollData[empId][yyyyMM]) return payrollData[empId][yyyyMM];
-  const earlierMonths = Object.keys(payrollData[empId]).filter(m => m < yyyyMM).sort();
-  let carry = {honorPokok:0, biayaTransport:0, honorLainnya:[]};
-  if(earlierMonths.length){
-    const last = payrollData[empId][earlierMonths[earlierMonths.length-1]];
-    carry = {
-      honorPokok: last.honorPokok || 0,
-      biayaTransport: last.biayaTransport || 0,
-      honorLainnya: (last.honorLainnya || []).map(x => ({id:'hl_'+Date.now()+Math.random().toString(36).slice(2,7), label:x.label, amount:x.amount}))
-    };
-  }
-  const entry = { honorPokok: carry.honorPokok, biayaTransport: carry.biayaTransport, hariTidakTercatat: 0, honorLainnya: carry.honorLainnya };
-  payrollData[empId][yyyyMM] = entry;
-  saveLocalState();
-  return entry;
-}
+    function renderGajiView() {
+      const emp = employees[selectedEmployeeId];
+      const box = document.getElementById('gajiView');
+      if (!emp) { box.innerHTML = ''; return; }
+      populateGajiMonthSelect();
+      const yyyyMM = selectedPayrollMonth;
+      const entry = getPayrollEntry(emp.id, yyyyMM);
+      const hadirOtomatis = computeMonthlyHadir(emp, yyyyMM);
+      const totalHariTransport = hadirOtomatis + (entry.hariTidakTercatat || 0);
+      const totalTransport = totalHariTransport * (entry.biayaTransport || 0);
+      const totalHonorLainnya = (entry.honorLainnya || []).reduce((s, x) => s + (Number(x.amount) || 0), 0);
+      const totalGaji = (entry.honorPokok || 0) + totalTransport + totalHonorLainnya;
 
-function populateGajiMonthSelect(){
-  const sel = document.getElementById('gajiMonthSelect');
-  const months = Array.from(new Set(allDates.map(d => d.slice(0,7)))).sort();
-  if(months.length === 0){
-    const now = new Date();
-    months.push(now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0'));
-  }
-  sel.innerHTML = '';
-  months.forEach(m => {
-    const opt = document.createElement('option');
-    opt.value = m; opt.textContent = fmtMonthLabel(m);
-    sel.appendChild(opt);
-  });
-  if(!selectedPayrollMonth || !months.includes(selectedPayrollMonth)) selectedPayrollMonth = months[months.length-1];
-  sel.value = selectedPayrollMonth;
-  sel.onchange = () => { selectedPayrollMonth = sel.value; renderGajiView(); };
-}
-
-function renderGajiView(){
-  const emp = employees[selectedEmployeeId];
-  const box = document.getElementById('gajiView');
-  if(!emp){ box.innerHTML = ''; return; }
-  populateGajiMonthSelect();
-  const yyyyMM = selectedPayrollMonth;
-  const entry = getPayrollEntry(emp.id, yyyyMM);
-  const hadirOtomatis = computeMonthlyHadir(emp, yyyyMM);
-  const totalHariTransport = hadirOtomatis + (entry.hariTidakTercatat || 0);
-  const totalTransport = totalHariTransport * (entry.biayaTransport || 0);
-  const totalHonorLainnya = (entry.honorLainnya || []).reduce((s,x) => s + (Number(x.amount)||0), 0);
-  const totalGaji = (entry.honorPokok || 0) + totalTransport + totalHonorLainnya;
-
-  box.innerHTML = `
+      box.innerHTML = `
     <div class="gaji-grid">
       <div class="gaji-box">
         <h4>Transport</h4>
@@ -995,295 +1697,296 @@ function renderGajiView(){
     </div>
   `;
 
-  renderHonorLainnyaList(emp.id, yyyyMM);
+      renderHonorLainnyaList(emp.id, yyyyMM);
 
-  document.getElementById('gjHariManual').onchange = e => { entry.hariTidakTercatat = parseInt(e.target.value)||0; saveLocalState(); renderGajiView(); };
-  document.getElementById('gjTransportRate').onchange = e => { entry.biayaTransport = parseFloat(e.target.value)||0; saveLocalState(); renderGajiView(); };
-  document.getElementById('gjHonorPokok').onchange = e => { entry.honorPokok = parseFloat(e.target.value)||0; saveLocalState(); renderGajiView(); };
-  document.getElementById('btnAddHonorLain').onclick = () => {
-    entry.honorLainnya = entry.honorLainnya || [];
-    entry.honorLainnya.push({id:'hl_'+Date.now(), label:'', amount:0});
-    saveLocalState(); renderGajiView();
-  };
-}
+      document.getElementById('gjHariManual').onchange = e => { entry.hariTidakTercatat = parseInt(e.target.value) || 0; saveLocalState(); renderGajiView(); };
+      document.getElementById('gjTransportRate').onchange = e => { entry.biayaTransport = parseFloat(e.target.value) || 0; saveLocalState(); renderGajiView(); };
+      document.getElementById('gjHonorPokok').onchange = e => { entry.honorPokok = parseFloat(e.target.value) || 0; saveLocalState(); renderGajiView(); };
+      document.getElementById('btnAddHonorLain').onclick = () => {
+        entry.honorLainnya = entry.honorLainnya || [];
+        entry.honorLainnya.push({ id: 'hl_' + Date.now(), label: '', amount: 0 });
+        saveLocalState(); renderGajiView();
+      };
+    }
 
-function renderHonorLainnyaList(empId, yyyyMM){
-  const entry = payrollData[empId][yyyyMM];
-  const box = document.getElementById('honorLainnyaList');
-  box.innerHTML = '';
-  (entry.honorLainnya || []).forEach(item => {
-    const row = document.createElement('div');
-    row.className = 'gaji-lain-row';
-    row.innerHTML = `<input type="text" placeholder="Nama honor" value="${escapeHtml(item.label||'')}"><input type="number" min="0" value="${item.amount||0}"><button class="icon-btn">✕</button>`;
-    const [labelInp, amtInp] = row.querySelectorAll('input');
-    const delBtn = row.querySelector('button');
-    labelInp.onchange = () => { item.label = labelInp.value; saveLocalState(); };
-    amtInp.onchange = () => { item.amount = parseFloat(amtInp.value)||0; saveLocalState(); renderGajiView(); };
-    delBtn.onclick = () => { entry.honorLainnya = entry.honorLainnya.filter(x => x.id !== item.id); saveLocalState(); renderGajiView(); };
-    box.appendChild(row);
-  });
-}
-
-// ---------- SLIP GAJI PDF ----------
-document.getElementById('btnExportSlip').addEventListener('click', () => {
-  const emp = employees[selectedEmployeeId];
-  if(!emp) return;
-  const yyyyMM = selectedPayrollMonth;
-  const entry = getPayrollEntry(emp.id, yyyyMM);
-  const hadirOtomatis = computeMonthlyHadir(emp, yyyyMM);
-  const totalHariTransport = hadirOtomatis + (entry.hariTidakTercatat || 0);
-  const totalTransport = totalHariTransport * (entry.biayaTransport || 0);
-  const totalHonorLainnya = (entry.honorLainnya || []).reduce((s,x) => s + (Number(x.amount)||0), 0);
-  const totalGaji = (entry.honorPokok || 0) + totalTransport + totalHonorLainnya;
-
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
-  doc.setFontSize(15);
-  doc.text('Slip Gaji', 14, 18);
-  doc.setFontSize(11);
-  doc.text('Yayasan Ulul Fikri', 14, 25);
-  doc.setFontSize(10);
-  doc.text('Nama: ' + emp.name, 14, 36);
-  doc.text('Periode: ' + fmtMonthLabel(yyyyMM), 14, 42);
-
-  const body = [
-    ['Honor Pokok', formatRupiah(entry.honorPokok || 0)],
-    ['Transport (' + totalHariTransport + ' hari x ' + formatRupiah(entry.biayaTransport || 0) + ')', formatRupiah(totalTransport)]
-  ];
-  (entry.honorLainnya || []).forEach(x => body.push([x.label || 'Honor Lainnya', formatRupiah(x.amount || 0)]));
-
-  doc.autoTable({
-    startY: 50,
-    head: [['Komponen','Jumlah']],
-    body,
-    styles: {fontSize:10, cellPadding:4},
-    headStyles: {fillColor:[20,99,86]},
-    foot: [['Total Gaji', formatRupiah(totalGaji)]],
-    footStyles: {fillColor:[12,65,57], textColor:255, fontStyle:'bold'}
-  });
-
-  doc.save('slip_gaji_' + emp.name.replace(/\s+/g,'_') + '_' + yyyyMM + '.pdf');
-});
-
-// ---------- PDF SEMUA GURU ----------
-document.getElementById('btnExportAllPdf').addEventListener('click', () => {
-  const list = Object.values(employees).sort((a,b) => a.name.localeCompare(b.name));
-  if(list.length === 0){ alert('Belum ada data guru untuk diunduh.'); return; }
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
-  const minStart = filesData.length ? filesData.reduce((a,f)=> f.periodStart < a ? f.periodStart : a, filesData[0].periodStart) : null;
-  const maxEnd = filesData.length ? filesData.reduce((a,f)=> f.periodEnd > a ? f.periodEnd : a, filesData[0].periodEnd) : null;
-
-  list.forEach((emp, idx) => {
-    if(idx > 0) doc.addPage();
-    const {rows, counts, group} = computeEmployeeReport(emp);
-    doc.setFontSize(14);
-    doc.text('Rekap Absensi Guru', 14, 16);
-    doc.setFontSize(11);
-    doc.text('Nama: ' + emp.name, 14, 24);
-    doc.text('Kelompok Jadwal: ' + (group ? group.name : '-'), 14, 30);
-    if(minStart && maxEnd) doc.text('Periode: ' + fmtDate(minStart) + ' - ' + fmtDate(maxEnd), 14, 36);
-    const hariEfektif = counts.ok + counts.late + counts.alpha;
-    const totalHadir = counts.ok + counts.late;
-    doc.setFontSize(12);
-    doc.text('Total Kehadiran: ' + totalHadir + ' / ' + hariEfektif + ' hari efektif', 14, 44);
-    doc.setFontSize(10);
-    doc.text('Tepat Waktu: ' + counts.ok + '   Terlambat/Pulang Cepat: ' + counts.late + '   Tidak Hadir: ' + counts.alpha + '   Libur: ' + counts.off, 14, 50);
-    doc.autoTable({
-      startY: 56,
-      head: [['Tanggal','Hari','Jam Masuk','Jam Keluar','Keterangan']],
-      body: rows.map(r => [fmtDateShort(r.dateStr), r.dowLabel, r.jamMasuk, r.jamKeluar, r.status]),
-      styles: {fontSize:8.5, cellPadding:3},
-      headStyles: {fillColor:[20,99,86]},
-      didParseCell: function(data){
-        if(data.section === 'body' && data.column.index === 4){
-          const txt = data.cell.raw;
-          if(/Terlambat|Pulang cepat/.test(txt)) data.cell.styles.textColor = [178,58,46];
-          else if(/Tidak Hadir/.test(txt)) data.cell.styles.textColor = [194,118,10];
-          else if(/Libur/.test(txt)) data.cell.styles.textColor = [124,139,135];
-        }
-      }
-    });
-  });
-
-  doc.save('rekap_absensi_semua_guru.pdf');
-});
-
-// ---------- GOOGLE SHEETS SYNC ----------
-function updateSyncStatus(){
-  const dot = document.getElementById('syncDot');
-  const txt = document.getElementById('syncStatusText');
-  if(!dot || !txt) return;
-  if(googleAccessToken){
-    dot.classList.add('on');
-    txt.textContent = 'Terhubung ke Google. Siap sinkronisasi.';
-  } else {
-    dot.classList.remove('on');
-    txt.textContent = 'Belum terhubung ke Google.';
-  }
-}
-
-function ensureGoogleTokenClient(){
-  if(!window.google || !google.accounts || !google.accounts.oauth2){
-    alert('Layanan Google belum siap dimuat. Pastikan koneksi internet aktif, lalu coba lagi.');
-    return null;
-  }
-  if(!googleConfig.clientId){
-    alert('Isi dulu Google OAuth Client ID di bagian Sinkronisasi Google Sheets.');
-    return null;
-  }
-  if(!googleTokenClient || googleTokenClient._clientId !== googleConfig.clientId){
-    googleTokenClient = google.accounts.oauth2.initTokenClient({
-      client_id: googleConfig.clientId,
-      scope: 'https://www.googleapis.com/auth/spreadsheets',
-      callback: (resp) => {
-        if(resp && resp.access_token){
-          googleAccessToken = resp.access_token;
-          updateSyncStatus();
-        }
-      }
-    });
-    googleTokenClient._clientId = googleConfig.clientId;
-  }
-  return googleTokenClient;
-}
-
-document.getElementById('btnGoogleConnect').onclick = () => {
-  googleConfig.clientId = document.getElementById('googleClientId').value.trim();
-  googleConfig.sheetId = document.getElementById('googleSheetId').value.trim();
-  saveLocalState();
-  const client = ensureGoogleTokenClient();
-  if(!client) return;
-  client.requestAccessToken();
-};
-
-async function sheetsApiFetch(path, options={}){
-  const res = await fetch('https://sheets.googleapis.com/v4/spreadsheets/' + googleConfig.sheetId + path, Object.assign({
-    headers: Object.assign({'Authorization':'Bearer ' + googleAccessToken, 'Content-Type':'application/json'}, options.headers || {})
-  }, options));
-  if(!res.ok){
-    const errText = await res.text();
-    throw new Error('Google Sheets API error (' + res.status + '): ' + errText);
-  }
-  return res.json();
-}
-
-async function ensureSheetTabs(){
-  const meta = await sheetsApiFetch('');
-  const existing = new Set(meta.sheets.map(s => s.properties.title));
-  const needed = ['Rekap','Gaji','Pengaturan'].filter(n => !existing.has(n));
-  if(needed.length){
-    await sheetsApiFetch(':batchUpdate', {
-      method:'POST',
-      body: JSON.stringify({ requests: needed.map(title => ({addSheet:{properties:{title}}})) })
-    });
-  }
-}
-
-async function writeSheetValues(tab, values){
-  const range = encodeURIComponent(tab + '!A1');
-  await sheetsApiFetch('/values/' + range + ':clear', {method:'POST', body:'{}'});
-  await sheetsApiFetch('/values/' + range + '?valueInputOption=RAW', {
-    method:'PUT',
-    body: JSON.stringify({ range: tab + '!A1', majorDimension:'ROWS', values })
-  });
-}
-
-async function readSheetValues(tab){
-  const range = encodeURIComponent(tab + '!A1:Z5000');
-  try{
-    const data = await sheetsApiFetch('/values/' + range);
-    return data.values || [];
-  }catch(err){
-    return null;
-  }
-}
-
-document.getElementById('btnSyncPush').onclick = async () => {
-  if(!googleAccessToken){ alert('Hubungkan akun Google dulu.'); return; }
-  if(!googleConfig.sheetId){ alert('Isi dulu ID Google Spreadsheet.'); return; }
-  const btn = document.getElementById('btnSyncPush');
-  const original = btn.textContent; btn.textContent = 'Menyimpan...'; btn.disabled = true;
-  try{
-    await ensureSheetTabs();
-
-    const rekapRows = [['Nama Guru','Tanggal','Hari','Jam Masuk','Jam Keluar','Keterangan']];
-    Object.values(employees).sort((a,b)=>a.name.localeCompare(b.name)).forEach(emp => {
-      const {rows} = computeEmployeeReport(emp);
-      rows.forEach(r => rekapRows.push([emp.name, r.dateStr, r.dowLabel, r.jamMasuk, r.jamKeluar, r.status]));
-    });
-    await writeSheetValues('Rekap', rekapRows);
-
-    const gajiRows = [['Nama Guru','Bulan','Hari Masuk Otomatis','Hari Tidak Tercatat','Biaya Transport/Hari','Total Transport','Honor Pokok','Honor Lainnya (Total)','Rincian Honor Lainnya','Total Gaji']];
-    Object.values(employees).sort((a,b)=>a.name.localeCompare(b.name)).forEach(emp => {
-      Object.keys(payrollData[emp.id] || {}).sort().forEach(yyyyMM => {
-        const entry = payrollData[emp.id][yyyyMM];
-        const hadirOtomatis = computeMonthlyHadir(emp, yyyyMM);
-        const totalHari = hadirOtomatis + (entry.hariTidakTercatat || 0);
-        const totalTransport = totalHari * (entry.biayaTransport || 0);
-        const totalLain = (entry.honorLainnya || []).reduce((s,x)=>s+(Number(x.amount)||0),0);
-        const rincian = (entry.honorLainnya || []).map(x => x.label + ': ' + formatRupiah(x.amount||0)).join('; ');
-        const total = (entry.honorPokok || 0) + totalTransport + totalLain;
-        gajiRows.push([emp.name, yyyyMM, hadirOtomatis, entry.hariTidakTercatat||0, entry.biayaTransport||0, totalTransport, entry.honorPokok||0, totalLain, rincian, total]);
+    function renderHonorLainnyaList(empId, yyyyMM) {
+      const entry = payrollData[empId][yyyyMM];
+      const box = document.getElementById('honorLainnyaList');
+      box.innerHTML = '';
+      (entry.honorLainnya || []).forEach(item => {
+        const row = document.createElement('div');
+        row.className = 'gaji-lain-row';
+        row.innerHTML = `<input type="text" placeholder="Nama honor" value="${escapeHtml(item.label || '')}"><input type="number" min="0" value="${item.amount || 0}"><button class="icon-btn">✕</button>`;
+        const [labelInp, amtInp] = row.querySelectorAll('input');
+        const delBtn = row.querySelector('button');
+        labelInp.onchange = () => { item.label = labelInp.value; saveLocalState(); };
+        amtInp.onchange = () => { item.amount = parseFloat(amtInp.value) || 0; saveLocalState(); renderGajiView(); };
+        delBtn.onclick = () => { entry.honorLainnya = entry.honorLainnya.filter(x => x.id !== item.id); saveLocalState(); renderGajiView(); };
+        box.appendChild(row);
       });
-    });
-    await writeSheetValues('Gaji', gajiRows);
-
-    const settingsJson = JSON.stringify({
-      workdays: Array.from(settings.workdays),
-      extraHolidays: settings.extraHolidays,
-      toleransi: settings.toleransi,
-      groups: settings.groups,
-      assignments: settings.assignments
-    });
-    const payrollJson = JSON.stringify(payrollData);
-    await writeSheetValues('Pengaturan', [
-      ['Catatan','Data di bawah dipakai aplikasi untuk sinkronisasi otomatis — jangan diedit manual.'],
-      ['settings_json', settingsJson],
-      ['payroll_json', payrollJson],
-      ['terakhir_disimpan', new Date().toLocaleString('id-ID')]
-    ]);
-
-    document.getElementById('syncStatusText').textContent = 'Tersimpan ke spreadsheet · ' + new Date().toLocaleTimeString('id-ID');
-    alert('Berhasil menyimpan data ke Google Spreadsheet.');
-  }catch(err){
-    alert('Gagal sinkronisasi: ' + err.message);
-  }finally{
-    btn.textContent = original; btn.disabled = false;
-  }
-};
-
-document.getElementById('btnSyncPull').onclick = async () => {
-  if(!googleAccessToken){ alert('Hubungkan akun Google dulu.'); return; }
-  if(!googleConfig.sheetId){ alert('Isi dulu ID Google Spreadsheet.'); return; }
-  const btn = document.getElementById('btnSyncPull');
-  const original = btn.textContent; btn.textContent = 'Memuat...'; btn.disabled = true;
-  try{
-    const rows = await readSheetValues('Pengaturan');
-    if(!rows){ alert('Tab "Pengaturan" belum ada di spreadsheet ini. Simpan dulu dari perangkat yang sudah punya data.'); return; }
-    const map = {};
-    rows.forEach(r => { if(r[0]) map[r[0]] = r[1]; });
-    if(map.settings_json){
-      const s = JSON.parse(map.settings_json);
-      settings.workdays = new Set(s.workdays || [1,2,3,4,5,6]);
-      settings.extraHolidays = s.extraHolidays || [];
-      settings.toleransi = (s.toleransi != null) ? s.toleransi : 2;
-      if(Array.isArray(s.groups) && s.groups.length) settings.groups = s.groups;
-      settings.assignments = s.assignments || {};
     }
-    if(map.payroll_json){
-      payrollData = JSON.parse(map.payroll_json);
+
+    // ---------- SLIP GAJI PDF ----------
+    document.getElementById('btnExportSlip').addEventListener('click', () => {
+      const emp = employees[selectedEmployeeId];
+      if (!emp) return;
+      const yyyyMM = selectedPayrollMonth;
+      const entry = getPayrollEntry(emp.id, yyyyMM);
+      const hadirOtomatis = computeMonthlyHadir(emp, yyyyMM);
+      const totalHariTransport = hadirOtomatis + (entry.hariTidakTercatat || 0);
+      const totalTransport = totalHariTransport * (entry.biayaTransport || 0);
+      const totalHonorLainnya = (entry.honorLainnya || []).reduce((s, x) => s + (Number(x.amount) || 0), 0);
+      const totalGaji = (entry.honorPokok || 0) + totalTransport + totalHonorLainnya;
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      doc.setFontSize(15);
+      doc.text('Slip Gaji', 14, 18);
+      doc.setFontSize(11);
+      doc.text('Yayasan Ulul Fikri', 14, 25);
+      doc.setFontSize(10);
+      doc.text('Nama: ' + emp.name, 14, 36);
+      doc.text('Periode: ' + fmtMonthLabel(yyyyMM), 14, 42);
+
+      const body = [
+        ['Honor Pokok', formatRupiah(entry.honorPokok || 0)],
+        ['Transport (' + totalHariTransport + ' hari x ' + formatRupiah(entry.biayaTransport || 0) + ')', formatRupiah(totalTransport)]
+      ];
+      (entry.honorLainnya || []).forEach(x => body.push([x.label || 'Honor Lainnya', formatRupiah(x.amount || 0)]));
+
+      doc.autoTable({
+        startY: 50,
+        head: [['Komponen', 'Jumlah']],
+        body,
+        styles: { fontSize: 10, cellPadding: 4 },
+        headStyles: { fillColor: [20, 99, 86] },
+        foot: [['Total Gaji', formatRupiah(totalGaji)]],
+        footStyles: { fillColor: [12, 65, 57], textColor: 255, fontStyle: 'bold' }
+      });
+
+      doc.save('slip_gaji_' + emp.name.replace(/\s+/g, '_') + '_' + yyyyMM + '.pdf');
+    });
+
+    // ---------- PDF SEMUA GURU ----------
+    document.getElementById('btnExportAllPdf').addEventListener('click', () => {
+      const list = Object.values(employees).sort((a, b) => a.name.localeCompare(b.name));
+      if (list.length === 0) { alert('Belum ada data guru untuk diunduh.'); return; }
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      const minStart = filesData.length ? filesData.reduce((a, f) => f.periodStart < a ? f.periodStart : a, filesData[0].periodStart) : null;
+      const maxEnd = filesData.length ? filesData.reduce((a, f) => f.periodEnd > a ? f.periodEnd : a, filesData[0].periodEnd) : null;
+
+      list.forEach((emp, idx) => {
+        if (idx > 0) doc.addPage();
+        const { rows, counts, group } = computeEmployeeReport(emp);
+        doc.setFontSize(14);
+        doc.text('Rekap Absensi Guru', 14, 16);
+        doc.setFontSize(11);
+        doc.text('Nama: ' + emp.name, 14, 24);
+        doc.text('Kelompok Jadwal: ' + (group ? group.name : '-'), 14, 30);
+        if (minStart && maxEnd) doc.text('Periode: ' + fmtDate(minStart) + ' - ' + fmtDate(maxEnd), 14, 36);
+        const hariEfektif = counts.ok + counts.late + counts.alpha;
+        const totalHadir = counts.ok + counts.late;
+        doc.setFontSize(12);
+        doc.text('Total Kehadiran: ' + totalHadir + ' / ' + hariEfektif + ' hari efektif', 14, 44);
+        doc.setFontSize(10);
+        doc.text('Tepat Waktu: ' + counts.ok + '   Terlambat/Pulang Cepat: ' + counts.late + '   Tidak Hadir: ' + counts.alpha + '   Libur: ' + counts.off, 14, 50);
+        doc.autoTable({
+          startY: 56,
+          head: [['Tanggal', 'Hari', 'Jam Masuk', 'Jam Keluar', 'Keterangan']],
+          body: rows.map(r => [fmtDateShort(r.dateStr), r.dowLabel, r.jamMasuk, r.jamKeluar, r.status]),
+          styles: { fontSize: 8.5, cellPadding: 3 },
+          headStyles: { fillColor: [20, 99, 86] },
+          didParseCell: function (data) {
+            if (data.section === 'body' && data.column.index === 4) {
+              const txt = data.cell.raw;
+              if (/Terlambat|Pulang cepat/.test(txt)) data.cell.styles.textColor = [178, 58, 46];
+              else if (/Tidak Hadir/.test(txt)) data.cell.styles.textColor = [194, 118, 10];
+              else if (/Libur/.test(txt)) data.cell.styles.textColor = [124, 139, 135];
+            }
+          }
+        });
+      });
+
+      doc.save('rekap_absensi_semua_guru.pdf');
+    });
+
+    // ---------- GOOGLE SHEETS SYNC ----------
+    function updateSyncStatus() {
+      const dot = document.getElementById('syncDot');
+      const txt = document.getElementById('syncStatusText');
+      if (!dot || !txt) return;
+      if (googleAccessToken) {
+        dot.classList.add('on');
+        txt.textContent = 'Terhubung ke Google. Siap sinkronisasi.';
+      } else {
+        dot.classList.remove('on');
+        txt.textContent = 'Belum terhubung ke Google.';
+      }
     }
-    saveLocalState();
-    renderAll();
-    document.getElementById('syncStatusText').textContent = 'Data dimuat dari spreadsheet.';
-    alert('Berhasil memuat pengaturan & data gaji dari Google Spreadsheet.');
-  }catch(err){
-    alert('Gagal memuat data: ' + err.message);
-  }finally{
-    btn.textContent = original; btn.disabled = false;
-  }
-};
-</script>
+
+    function ensureGoogleTokenClient() {
+      if (!window.google || !google.accounts || !google.accounts.oauth2) {
+        alert('Layanan Google belum siap dimuat. Pastikan koneksi internet aktif, lalu coba lagi.');
+        return null;
+      }
+      if (!googleConfig.clientId) {
+        alert('Isi dulu Google OAuth Client ID di bagian Sinkronisasi Google Sheets.');
+        return null;
+      }
+      if (!googleTokenClient || googleTokenClient._clientId !== googleConfig.clientId) {
+        googleTokenClient = google.accounts.oauth2.initTokenClient({
+          client_id: googleConfig.clientId,
+          scope: 'https://www.googleapis.com/auth/spreadsheets',
+          callback: (resp) => {
+            if (resp && resp.access_token) {
+              googleAccessToken = resp.access_token;
+              updateSyncStatus();
+            }
+          }
+        });
+        googleTokenClient._clientId = googleConfig.clientId;
+      }
+      return googleTokenClient;
+    }
+
+    document.getElementById('btnGoogleConnect').onclick = () => {
+      googleConfig.clientId = document.getElementById('googleClientId').value.trim();
+      googleConfig.sheetId = document.getElementById('googleSheetId').value.trim();
+      saveLocalState();
+      const client = ensureGoogleTokenClient();
+      if (!client) return;
+      client.requestAccessToken();
+    };
+
+    async function sheetsApiFetch(path, options = {}) {
+      const res = await fetch('https://sheets.googleapis.com/v4/spreadsheets/' + googleConfig.sheetId + path, Object.assign({
+        headers: Object.assign({ 'Authorization': 'Bearer ' + googleAccessToken, 'Content-Type': 'application/json' }, options.headers || {})
+      }, options));
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error('Google Sheets API error (' + res.status + '): ' + errText);
+      }
+      return res.json();
+    }
+
+    async function ensureSheetTabs() {
+      const meta = await sheetsApiFetch('');
+      const existing = new Set(meta.sheets.map(s => s.properties.title));
+      const needed = ['Rekap', 'Gaji', 'Pengaturan'].filter(n => !existing.has(n));
+      if (needed.length) {
+        await sheetsApiFetch(':batchUpdate', {
+          method: 'POST',
+          body: JSON.stringify({ requests: needed.map(title => ({ addSheet: { properties: { title } } })) })
+        });
+      }
+    }
+
+    async function writeSheetValues(tab, values) {
+      const range = encodeURIComponent(tab + '!A1');
+      await sheetsApiFetch('/values/' + range + ':clear', { method: 'POST', body: '{}' });
+      await sheetsApiFetch('/values/' + range + '?valueInputOption=RAW', {
+        method: 'PUT',
+        body: JSON.stringify({ range: tab + '!A1', majorDimension: 'ROWS', values })
+      });
+    }
+
+    async function readSheetValues(tab) {
+      const range = encodeURIComponent(tab + '!A1:Z5000');
+      try {
+        const data = await sheetsApiFetch('/values/' + range);
+        return data.values || [];
+      } catch (err) {
+        return null;
+      }
+    }
+
+    document.getElementById('btnSyncPush').onclick = async () => {
+      if (!googleAccessToken) { alert('Hubungkan akun Google dulu.'); return; }
+      if (!googleConfig.sheetId) { alert('Isi dulu ID Google Spreadsheet.'); return; }
+      const btn = document.getElementById('btnSyncPush');
+      const original = btn.textContent; btn.textContent = 'Menyimpan...'; btn.disabled = true;
+      try {
+        await ensureSheetTabs();
+
+        const rekapRows = [['Nama Guru', 'Tanggal', 'Hari', 'Jam Masuk', 'Jam Keluar', 'Keterangan']];
+        Object.values(employees).sort((a, b) => a.name.localeCompare(b.name)).forEach(emp => {
+          const { rows } = computeEmployeeReport(emp);
+          rows.forEach(r => rekapRows.push([emp.name, r.dateStr, r.dowLabel, r.jamMasuk, r.jamKeluar, r.status]));
+        });
+        await writeSheetValues('Rekap', rekapRows);
+
+        const gajiRows = [['Nama Guru', 'Bulan', 'Hari Masuk Otomatis', 'Hari Tidak Tercatat', 'Biaya Transport/Hari', 'Total Transport', 'Honor Pokok', 'Honor Lainnya (Total)', 'Rincian Honor Lainnya', 'Total Gaji']];
+        Object.values(employees).sort((a, b) => a.name.localeCompare(b.name)).forEach(emp => {
+          Object.keys(payrollData[emp.id] || {}).sort().forEach(yyyyMM => {
+            const entry = payrollData[emp.id][yyyyMM];
+            const hadirOtomatis = computeMonthlyHadir(emp, yyyyMM);
+            const totalHari = hadirOtomatis + (entry.hariTidakTercatat || 0);
+            const totalTransport = totalHari * (entry.biayaTransport || 0);
+            const totalLain = (entry.honorLainnya || []).reduce((s, x) => s + (Number(x.amount) || 0), 0);
+            const rincian = (entry.honorLainnya || []).map(x => x.label + ': ' + formatRupiah(x.amount || 0)).join('; ');
+            const total = (entry.honorPokok || 0) + totalTransport + totalLain;
+            gajiRows.push([emp.name, yyyyMM, hadirOtomatis, entry.hariTidakTercatat || 0, entry.biayaTransport || 0, totalTransport, entry.honorPokok || 0, totalLain, rincian, total]);
+          });
+        });
+        await writeSheetValues('Gaji', gajiRows);
+
+        const settingsJson = JSON.stringify({
+          workdays: Array.from(settings.workdays),
+          extraHolidays: settings.extraHolidays,
+          toleransi: settings.toleransi,
+          groups: settings.groups,
+          assignments: settings.assignments
+        });
+        const payrollJson = JSON.stringify(payrollData);
+        await writeSheetValues('Pengaturan', [
+          ['Catatan', 'Data di bawah dipakai aplikasi untuk sinkronisasi otomatis — jangan diedit manual.'],
+          ['settings_json', settingsJson],
+          ['payroll_json', payrollJson],
+          ['terakhir_disimpan', new Date().toLocaleString('id-ID')]
+        ]);
+
+        document.getElementById('syncStatusText').textContent = 'Tersimpan ke spreadsheet · ' + new Date().toLocaleTimeString('id-ID');
+        alert('Berhasil menyimpan data ke Google Spreadsheet.');
+      } catch (err) {
+        alert('Gagal sinkronisasi: ' + err.message);
+      } finally {
+        btn.textContent = original; btn.disabled = false;
+      }
+    };
+
+    document.getElementById('btnSyncPull').onclick = async () => {
+      if (!googleAccessToken) { alert('Hubungkan akun Google dulu.'); return; }
+      if (!googleConfig.sheetId) { alert('Isi dulu ID Google Spreadsheet.'); return; }
+      const btn = document.getElementById('btnSyncPull');
+      const original = btn.textContent; btn.textContent = 'Memuat...'; btn.disabled = true;
+      try {
+        const rows = await readSheetValues('Pengaturan');
+        if (!rows) { alert('Tab "Pengaturan" belum ada di spreadsheet ini. Simpan dulu dari perangkat yang sudah punya data.'); return; }
+        const map = {};
+        rows.forEach(r => { if (r[0]) map[r[0]] = r[1]; });
+        if (map.settings_json) {
+          const s = JSON.parse(map.settings_json);
+          settings.workdays = new Set(s.workdays || [1, 2, 3, 4, 5, 6]);
+          settings.extraHolidays = s.extraHolidays || [];
+          settings.toleransi = (s.toleransi != null) ? s.toleransi : 2;
+          if (Array.isArray(s.groups) && s.groups.length) settings.groups = s.groups;
+          settings.assignments = s.assignments || {};
+        }
+        if (map.payroll_json) {
+          payrollData = JSON.parse(map.payroll_json);
+        }
+        saveLocalState();
+        renderAll();
+        document.getElementById('syncStatusText').textContent = 'Data dimuat dari spreadsheet.';
+        alert('Berhasil memuat pengaturan & data gaji dari Google Spreadsheet.');
+      } catch (err) {
+        alert('Gagal memuat data: ' + err.message);
+      } finally {
+        btn.textContent = original; btn.disabled = false;
+      }
+    };
+  </script>
 </body>
+
 </html>
